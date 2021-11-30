@@ -19,3 +19,9 @@ TEST(HashTest, testHex) {
        EXPECT_EQ(c, '1');
    }
 }
+
+TEST(HashTest, testHash) {
+    HashState hr;
+    uint64_t salt = 0xdeadbeefc001d00d;
+    hr(reinterpret_cast<uint8_t*>(&salt), sizeof(salt));
+}

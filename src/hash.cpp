@@ -1,6 +1,9 @@
 #include <string>
 #include <cassert>
 
+#include <openssl/evp.h> //for all other OpenSSL function calls
+#include <openssl/sha.h> //for SHA512_DIGEST_LENGTH
+
 #include "hash.hpp"
 
 using namespace std;
@@ -23,7 +26,14 @@ string HashResult::hex() {
 	return retval;
 }
 
-void HashState::operator()(const uint8_t* bytes, size_t sz) {
-
+void HashState::operator()(const uint8_t* bytes, size_t size) {
+    uint32_t digest_length = SHA512_DIGEST_LENGTH;
+    assert(SHA512_DIGEST_LENGTH <= HASH_LENGTH);
+    const EVP_MD* algorithm = EVP_sha3_512();
+    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(context, algorithm, nullptr);
+    EVP_DigestUpdate(context, (unsigned char*)bytes, size);
+    EVP_DigestFinal_ex(context, (unsigned char*)&state.bytes, &digest_length);
+    EVP_MD_CTX_destroy(context);
 }
 
