@@ -5,21 +5,20 @@
 #include <cstddef>
 #include <cstring>
 
-static const size_t HASH_LENGTH = 256;
+static const size_t BITS_PER_BYTE = 8;
+static const size_t HASH_BITS = 256;
+static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 
 struct HashResult {
-    uint8_t bytes[HASH_LENGTH];
+    uint8_t bytes[HASH_BYTES];
     HashResult() {
         memset(&bytes, 0, sizeof(bytes));
     }
 
-	std::string hex();
+	std::string hex() const;
 };
 
 class HashState {
-    public:
-    static const size_t HASH_LENGTH = 256;
-
     protected:
     HashResult state;
 

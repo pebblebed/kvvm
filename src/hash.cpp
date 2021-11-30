@@ -15,10 +15,11 @@ char nybbleToC(uint8_t nybble) {
     return 'a' + (nybble - 10);
 }
 
-string HashResult::hex() {
+string HashResult::hex() const {
 	string retval;
-	retval.resize(HASH_LENGTH * 2);
-	for (auto ii = 0; ii < HASH_LENGTH; ii++) {
+    const int BITS_PER_HEX_CHAR = 4;
+	retval.resize(HASH_BITS / BITS_PER_HEX_CHAR);
+	for (auto ii = 0; ii < HASH_BYTES; ii++) {
         auto c = bytes[ii];
         retval[ii * 2] = nybbleToC(c >> 4);
         retval[ii * 2 + 1] = nybbleToC(c & 0xf);
@@ -28,7 +29,7 @@ string HashResult::hex() {
 
 void HashState::operator()(const uint8_t* bytes, size_t size) {
     uint32_t digest_length = SHA512_DIGEST_LENGTH;
-    assert(SHA512_DIGEST_LENGTH <= HASH_LENGTH);
+    assert(SHA512_DIGEST_LENGTH <= HASH_BITS);
     const EVP_MD* algorithm = EVP_sha3_512();
     EVP_MD_CTX* context = EVP_MD_CTX_new();
     EVP_DigestInit_ex(context, algorithm, nullptr);
