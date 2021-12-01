@@ -5,29 +5,34 @@
 #include <cstddef>
 #include <cstring>
 
+#include <openssl/evp.h>
+
 static const size_t BITS_PER_BYTE = 8;
 static const size_t HASH_BITS = 256;
 static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 
 struct Hash {
     uint8_t bytes[HASH_BYTES];
+    public:
     Hash() {
-        memset(&bytes, 0, sizeof(bytes));
+        memset(bytes, 0, sizeof(bytes));
     }
-
 	std::string hex() const;
+
+    bool operator==(const Hash& rhs) const;
+    bool operator!=(const Hash& rhs) const;
 };
 
 class HashState {
     protected:
-    Hash state;
+    const EVP_MD* algorithm;
+    EVP_MD_CTX* context;
 
     public:
+    HashState();
+    ~HashState();
 
-    const Hash currentState() const {
-        return state;
-    }
-
-	void operator()(const uint8_t* bytes, size_t sz);
+    // NB: Can only do this once per HashState currently. Yucko.
+	Hash operator()(const uint8_t* bytes, size_t sz);
 };
 

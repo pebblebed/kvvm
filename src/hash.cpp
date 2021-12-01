@@ -1,12 +1,13 @@
 #include <string>
 #include <cassert>
 
-#include <openssl/evp.h> //for all other OpenSSL function calls
-#include <openssl/sha.h> //for SHA512_DIGEST_LENGTH
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 
 #include "hash.hpp"
 
 using namespace std;
+
 
 char nybbleToC(uint8_t nybble) {
     assert(nybble >= 0);
@@ -14,6 +15,7 @@ char nybbleToC(uint8_t nybble) {
     if (nybble < 10) return '0' + nybble;
     return 'a' + (nybble - 10);
 }
+
 
 string Hash::hex() const {
 	string retval;
@@ -27,14 +29,32 @@ string Hash::hex() const {
 	return retval;
 }
 
-void HashState::operator()(const uint8_t* bytes, size_t size) {
+
+bool Hash::operator==(const Hash& rhs) const {
+    return memcmp(bytes, rhs.bytes, HASH_BYTES) == 0;
+}
+
+
+bool Hash::operator!=(const Hash& rhs) const {
+    return !(*this == rhs);
+}
+
+HashState::HashState() {
     uint32_t digest_length = SHA512_DIGEST_LENGTH;
     assert(SHA512_DIGEST_LENGTH <= HASH_BITS);
-    const EVP_MD* algorithm = EVP_sha3_512();
-    EVP_MD_CTX* context = EVP_MD_CTX_new();
+    algorithm = EVP_sha3_512();
+    context = EVP_MD_CTX_new();
     EVP_DigestInit_ex(context, algorithm, nullptr);
-    EVP_DigestUpdate(context, (unsigned char*)bytes, size);
-    EVP_DigestFinal_ex(context, (unsigned char*)&state.bytes, &digest_length);
+}
+
+HashState::~HashState() {
     EVP_MD_CTX_destroy(context);
+}
+
+Hash HashState::operator()(const uint8_t* bytes, size_t size) {
+    Hash state;
+    EVP_DigestUpdate(context, (unsigned char*)bytes, size);
+    EVP_DigestFinal_ex(context, (unsigned char*)&state.bytes, nullptr);
+    return state;
 }
 

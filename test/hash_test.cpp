@@ -25,8 +25,11 @@ TEST(HashTest, testHex) {
 }
 
 TEST(HashTest, testHash) {
-    HashState hr;
+    HashState hr1, hr2;
     uint64_t salt = 0xdeadbeefc001d00d;
-    hr(reinterpret_cast<uint8_t*>(&salt), sizeof(salt));
-    std::cerr << hr.currentState().hex() << "\n";
+    auto h1 = hr1(reinterpret_cast<uint8_t*>(&salt), sizeof(salt));
+    salt++;
+    auto h2 = hr2(reinterpret_cast<uint8_t*>(&salt), sizeof(salt));
+    std::cerr << h1.hex() << "\n" << h2.hex() << "\n";
+    EXPECT_NE(h1, h2);
 }
