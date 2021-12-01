@@ -40,7 +40,6 @@ bool Hash::operator!=(const Hash& rhs) const {
 }
 
 HashState::HashState() {
-    uint32_t digest_length = SHA512_DIGEST_LENGTH;
     assert(SHA512_DIGEST_LENGTH <= HASH_BITS);
     algorithm = EVP_sha3_512();
     context = EVP_MD_CTX_new();

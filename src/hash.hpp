@@ -8,7 +8,7 @@
 #include <openssl/evp.h>
 
 static const size_t BITS_PER_BYTE = 8;
-static const size_t HASH_BITS = 256;
+static const size_t HASH_BITS = 512;
 static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 
 struct Hash {

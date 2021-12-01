@@ -8,28 +8,28 @@
 #include "hash.hpp"
 
 /*
- * The humble content-addressable, immutable Blob. We decide to store
+ * Your humble, content-addressable, immutable Blob. We decide to store
  * memory out of line with size/content, and the blob owns a copy of the
  * memory in question. This increases copying, alas, but is simpler to
  * reason about for an initial implementation.
  */
 struct Blob {
-    Hash hash;
-    const uint64_t memoizedHashIndex;
-    size_t size;
+    const Hash hash;
+    const uint64_t hashIndex;
+    const size_t size;
     const uint8_t *bytes;
 
     Blob(const uint8_t* bts, size_t size)
         : hash(computeHash(bts, size))
-        , memoizedHashIndex(computeHashIndex(hash))
+        , hashIndex(computeHashIndex(hash))
         , size(size)
         {
-        auto vbytes = (uint8_t*)std::malloc(size);
+        auto vbytes = std::malloc(size);
         if (vbytes == nullptr) {
             throw std::bad_alloc();
         }
         memcpy(vbytes, bts, size);
-        bytes = vbytes;
+        bytes = (uint8_t*)vbytes;
     }
 
     ~Blob() {
