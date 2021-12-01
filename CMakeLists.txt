@@ -27,6 +27,7 @@ add_executable(
   testino
   test/hello_test.cpp
   test/hash_test.cpp
+  test/blob_test.cpp
   test/istore_test.cpp
 )
 

@@ -54,7 +54,12 @@ HashState::~HashState() {
 Hash HashState::operator()(const uint8_t* bytes, size_t size) {
     Hash state;
     EVP_DigestUpdate(context, (unsigned char*)bytes, size);
-    EVP_DigestFinal_ex(context, (unsigned char*)&state.bytes, nullptr);
+    EVP_DigestFinal_ex(context, (unsigned char*)state.bytes, nullptr);
     return state;
 }
 
+
+Hash computeHash(const uint8_t* bytes, size_t sz) {
+    HashState hs;
+    return hs(bytes, sz);
+}

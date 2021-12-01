@@ -12,7 +12,10 @@ static const size_t HASH_BITS = 256;
 static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 
 struct Hash {
-    uint8_t bytes[HASH_BYTES];
+    union {
+        uint8_t bytes[HASH_BYTES];
+        uint64_t quads[HASH_BYTES / 8];
+    };
     public:
     Hash() {
         memset(bytes, 0, sizeof(bytes));
@@ -36,3 +39,4 @@ class HashState {
 	Hash operator()(const uint8_t* bytes, size_t sz);
 };
 
+Hash computeHash(const uint8_t* bytes, size_t sz);
