@@ -15,7 +15,7 @@ char nybbleToC(uint8_t nybble) {
     return 'a' + (nybble - 10);
 }
 
-string HashResult::hex() const {
+string Hash::hex() const {
 	string retval;
     const int BITS_PER_HEX_CHAR = 4;
 	retval.resize(HASH_BITS / BITS_PER_HEX_CHAR);

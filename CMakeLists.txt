@@ -20,13 +20,16 @@ enable_testing()
 add_library(
     kvvm
     src/hash.cpp
+    src/istore.cpp
 )
 
 add_executable(
   testino
   test/hello_test.cpp
   test/hash_test.cpp
+  test/istore_test.cpp
 )
+
 target_link_libraries(
   testino
   gtest_main

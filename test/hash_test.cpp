@@ -4,7 +4,7 @@
 #include "../src/hash.hpp"
 
 TEST(HashTest, testHex) {
-   HashResult hr;
+   Hash hr;
    static const size_t OUTPUT_BYTES = HASH_BYTES * 2;
    auto pretty = hr.hex();
    EXPECT_EQ(pretty.size(), OUTPUT_BYTES);
