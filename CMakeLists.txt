@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(OpenSSL REQUIRED)
 
+if(UNIX AND APPLE)
+    include_directories(AFTER /opt/homebrew/opt/openssl/include)
+endif()
+
 include(FetchContent)
 FetchContent_Declare(
   googletest
