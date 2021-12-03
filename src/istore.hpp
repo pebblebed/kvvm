@@ -1,37 +1,42 @@
 #pragma once
 
 #include <mutex>
-#include "hash.hpp"
+#include <unordered_map>
 
-template<typename Content>
+#include "hash.hpp"
+#include "blob.hpp"
+
 class IStore {
 protected:
-    Content& current;
+    Hash current;
 
 public:
     Hash getCurrentHash() {
-        return current.hash();
+        return current;
     }
 
     // Returns getCurrentHash()
-    virtual Hash cas(Hash oldval, Content& newval) = 0;
+    virtual bool cas(Hash oldval, Hash newval) = 0;
+
+    virtual Blob get(Hash h) const = 0;
+    virtual void save(const Blob& b) = 0;
 };
 
-template<typename Content>
-class InMemoryStore: protected IStore<Content> {
-    std::mutex mutex;
+class InMemoryStore: protected IStore {
+    mutable std::mutex mutex;
+    std::unordered_map<Hash, Blob, hash_hash> blobs;
+
     public:
-    virtual bool cas(Hash oldval, Content& newval) {
+    virtual bool cas(Hash oldval, Hash newval) {
         const std::lock_guard<std::mutex> _(mutex);
-        auto curHash = IStore<Content>::current.hash();
+        auto curHash = current;
         if (curHash == oldval) {
-            auto newHash = newval.hash();
-            if (newval == curHash) {
-                return true;
-            }
-            IStore<Content>::current = newval;
+            current = newval;
             return true;
         }
         return false;
     }
+
+    virtual Blob get(Hash h) const;
+    virtual void save(const Blob& b);
 };

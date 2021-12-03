@@ -20,10 +20,24 @@ struct Hash {
     Hash() {
         memset(bytes, 0, sizeof(bytes));
     }
-	std::string hex() const;
+    std::string hex() const;
 
     bool operator==(const Hash& rhs) const;
     bool operator!=(const Hash& rhs) const;
+
+    uint64_t computeHashIndex() const {
+        uint64_t out = 022707;
+        for (auto q: quads) {
+            out ^= (out * 11) + q;
+        }
+        return out;
+    }
+};
+
+struct hash_hash {
+    size_t operator()(const Hash& h) const {
+        return size_t(h.computeHashIndex());
+    }
 };
 
 class HashState {

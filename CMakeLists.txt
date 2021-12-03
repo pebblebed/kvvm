@@ -25,10 +25,11 @@ add_library(
     kvvm
     src/hash.cpp
     src/istore.cpp
+    src/table.cpp
 )
 
 add_executable(
-  testino
+  test_lowest_level
   test/hello_test.cpp
   test/hash_test.cpp
   test/blob_test.cpp
@@ -36,12 +37,25 @@ add_executable(
 )
 
 target_link_libraries(
-  testino
+  test_lowest_level
+  gtest_main
+  kvvm
+  OpenSSL::SSL
+)
+
+add_executable(
+  test_table
+  test/table_test.cpp
+)
+
+target_link_libraries(
+  test_table
   gtest_main
   kvvm
   OpenSSL::SSL
 )
 
 include(GoogleTest)
-gtest_discover_tests(testino)
+gtest_discover_tests(test_lowest_level)
+gtest_discover_tests(test_table)
 

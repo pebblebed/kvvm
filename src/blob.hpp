@@ -15,13 +15,11 @@
  */
 struct Blob {
     const Hash hash;
-    const uint64_t hashIndex;
     const size_t size;
     const uint8_t *bytes;
 
     Blob(const uint8_t* bts, size_t size)
         : hash(computeHash(bts, size))
-        , hashIndex(computeHashIndex(hash))
         , size(size)
         {
         auto vbytes = std::malloc(size);
@@ -41,14 +39,5 @@ struct Blob {
         return hs(bytes, size) == hash;
     }
 
-    private:
-    static uint64_t computeHashIndex(Hash hash) {
-        uint64_t out = 022707;
-        for (auto q: hash.quads) {
-            out *= 37;
-            out += q;
-        }
-        return out;
-    }
 };
 
