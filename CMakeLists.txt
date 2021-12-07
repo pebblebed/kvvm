@@ -26,11 +26,12 @@ add_library(
     src/hash.cpp
     src/istore.cpp
     src/table.cpp
+    src/serialize.cpp
 )
 
 add_executable(
   test_lowest_level
-  test/hello_test.cpp
+  test/serialize_test.cpp
   test/hash_test.cpp
   test/blob_test.cpp
   test/istore_test.cpp

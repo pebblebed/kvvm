@@ -22,7 +22,7 @@ public:
     virtual void save(const Blob& b) = 0;
 };
 
-class InMemoryStore: protected IStore {
+class InMemoryStore: public IStore {
     mutable std::mutex mutex;
     std::unordered_map<Hash, Blob, hash_hash> blobs;
 

@@ -62,3 +62,11 @@ Hash computeHash(const uint8_t* bytes, size_t sz) {
     HashState hs;
     return hs(bytes, sz);
 }
+
+Hash combineOrderedHash(Hash old, Hash newHash) {
+  Hash ret = old;
+  for (int i = 0; i < HASH_QUADS; i++) {
+    ret.quads[i] = old.quads[i] * 37 + newHash.quads[i];
+  }
+  return ret;
+}

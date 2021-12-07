@@ -4,6 +4,7 @@
 #include <string>
 
 #include "hash.hpp"
+#include "istore.hpp"
 
 enum ColumnType {
   STRING,
@@ -12,7 +13,21 @@ enum ColumnType {
   INT
 };
 
-class Schema {
+struct Serializable {
+  virtual Hash hash() const = 0;
+  virtual std::string serialize() const = 0;
+};
+
+template<typename Underlying /* as Serializable */>
+struct Hashable {
+  Hash hash;
+  Underlying materialize(IStore& store) const {
+    auto s = store.get(hash);
+
+  }
+};
+
+class Schema : public Serializable {
   std::vector<std::pair<std::string, ColumnType>> schema;
 
   public:
@@ -23,11 +38,23 @@ class Schema {
   static Schema deserialize(std::string);
 };
 
-class Table {
-  std::vector<Hash> rows;
-  Hash schema;
+class RowBank : public Serializable {
+  public:
+
+  Hash hash() const;
+  std::string serialize() const;
+
+  static RowBank deserialize(std::string);
+};
+
+class Table : public Serializable {
+  IStore &store;
+  std::vector<Hashable<RowBank>> rows;
+  Hashable<Schema> schema;
 
   public:
+  Table(IStore &store) : store(store) { }
+  ~Table() { }
 
   Hash hash() const;
   std::string serialize() const;
