@@ -30,6 +30,9 @@ struct Blob {
         bytes = (uint8_t*)vbytes;
     }
 
+    Blob(std::string s)
+    : Blob((const uint8_t*)&s[0], s.length()) { }
+
     ~Blob() {
         std::free((void*)bytes);
     }
@@ -39,5 +42,8 @@ struct Blob {
         return hs(bytes, size) == hash;
     }
 
+    std::string substr(int start, size_t len) const {
+        return std::string((const char*)bytes + start, len);
+    }
 };
 

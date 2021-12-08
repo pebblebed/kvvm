@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <string>
 
 #include "hash.hpp"
 #include "istore.hpp"
@@ -13,9 +12,38 @@ enum ColumnType {
   INT
 };
 
+struct Cell {
+  const ColumnType col;
+  const union {
+    bool Bool;
+    float Float;
+    int Int;
+  } u;
+  const std::string String;
+
+  static Cell s(std::string s) {
+    return Cell{
+      STRING, { 0 }, s
+    };
+  }
+
+  static Cell f(float f) {
+    return Cell {
+      STRING, { .Float=f }, {}
+    };
+  }
+};
+
+struct Row {
+  std::vector<Cell> cells;
+};
+
 struct Serializable {
-  virtual Hash hash() const = 0;
-  virtual std::string serialize() const = 0;
+  virtual Blob serialize() const = 0;
+
+  Hash hash() const {
+    return serialize().hash;
+  }
 };
 
 template<typename Underlying /* as Serializable */>
@@ -23,7 +51,7 @@ struct Hashable {
   Hash hash;
   Underlying materialize(IStore& store) const {
     auto s = store.get(hash);
-
+    return Underlying::deserialize(s);
   }
 };
 
@@ -32,19 +60,22 @@ class Schema : public Serializable {
 
   public:
 
-  Hash hash() const;
-  std::string serialize() const;
+  Schema(const std::vector<std::pair<std::string, ColumnType>>& cols)
+  : schema(cols) { }
 
-  static Schema deserialize(std::string);
+  Hash hash() const;
+  Blob serialize() const;
+
+  static Schema deserialize(const Blob& b);
 };
 
 class RowBank : public Serializable {
   public:
 
   Hash hash() const;
-  std::string serialize() const;
+  Blob serialize() const;
 
-  static RowBank deserialize(std::string);
+  static RowBank deserialize(const Blob& b);
 };
 
 class Table : public Serializable {
@@ -57,5 +88,10 @@ class Table : public Serializable {
   ~Table() { }
 
   Hash hash() const;
-  std::string serialize() const;
+  Blob serialize() const;
+  Schema getSchema() const;
+
+  Table addCol(std::string name, Cell defaultVal);
+  Table addRow(Row row);
 };
+

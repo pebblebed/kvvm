@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
 #include <unordered_map>
 
 #include "hash.hpp"
+#include "blob.hpp"
 
 const int MAGIC_BYTES = 6;
 
@@ -26,6 +26,19 @@ static const std::unordered_map<Magic, const char*> magicToStrMap {
     MAGICS()
 #undef MAGIC
 };
+
+static const std::unordered_map<std::string, Magic> strToMagicMap {
+#define MAGIC(x) \
+    { std::string(#x), MAGIC_ ##x },
+    MAGICS()
+#undef MAGIC
+};
 #undef MAGICS
 
-std::string serializeHashStructure(Magic id, std::vector<Hash> hashes);
+Blob serializeHashStructure(Magic id, std::vector<Hash> hashes);
+
+struct HashedStructResult {
+    Magic magic;
+    std::vector<Hash> hashen;
+};
+HashedStructResult deserializeHashStructure(const Blob& b);
