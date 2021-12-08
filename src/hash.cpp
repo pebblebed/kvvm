@@ -31,7 +31,7 @@ string Hash::hex() const {
 
 
 bool Hash::operator==(const Hash& rhs) const {
-    return memcmp(bytes, rhs.bytes, HASH_BYTES) == 0;
+    return memcmp(&bytes[0], &rhs.bytes[0], HASH_BYTES) == 0;
 }
 
 
@@ -53,7 +53,7 @@ HashState::~HashState() {
 Hash HashState::operator()(const uint8_t* bytes, size_t size) {
     Hash state;
     EVP_DigestUpdate(context, (unsigned char*)bytes, size);
-    EVP_DigestFinal_ex(context, (unsigned char*)state.bytes, nullptr);
+    EVP_DigestFinal_ex(context, (unsigned char*)&state.bytes[0], nullptr);
     return state;
 }
 

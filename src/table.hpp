@@ -49,6 +49,11 @@ struct Serializable {
 template<typename Underlying /* as Serializable */>
 struct Hashable {
   Hash hash;
+
+  Hashable(const Underlying& u)
+  : hash(u.hash())
+  { }
+
   Underlying materialize(IStore& store) const {
     auto s = store.get(hash);
     return Underlying::deserialize(s);
@@ -63,18 +68,14 @@ class Schema : public Serializable {
   Schema(const std::vector<std::pair<std::string, ColumnType>>& cols)
   : schema(cols) { }
 
-  Hash hash() const;
   Blob serialize() const;
-
   static Schema deserialize(const Blob& b);
 };
 
 class RowBank : public Serializable {
   public:
 
-  Hash hash() const;
   Blob serialize() const;
-
   static RowBank deserialize(const Blob& b);
 };
 
@@ -84,14 +85,17 @@ class Table : public Serializable {
   Hashable<Schema> schema;
 
   public:
-  Table(IStore &store) : store(store) { }
+  Table(IStore &store, Hashable<Schema> schema)
+  : store(store)
+  , schema(schema) { }
   ~Table() { }
 
-  Hash hash() const;
   Blob serialize() const;
-  Schema getSchema() const;
+  static Table deserialize(const Blob& b);
 
+  Schema getSchema() const;
   Table addCol(std::string name, Cell defaultVal);
   Table addRow(Row row);
+
 };
 

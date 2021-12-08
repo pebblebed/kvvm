@@ -1,28 +1,35 @@
 #include "table.hpp"
 #include "serialize.hpp"
+#include "hps.h"
 
-//// Schema
-#if 0
-Blob Schema::serialize() {
-  std::string ret;
+using namespace std;
+
+Blob Schema::serialize() const {
+  string s;
+  hps::to_string(schema.size(), s);
+  for (auto row: schema) {
+     hps::to_string(row.first, s);
+     hps::to_string((int)row.second, s);
+  }
   return Blob(s);
 }
 
 Schema Schema::deserialize(const Blob& b) {
-  
-}
-#endif
-
-
-//// Table
-
-Hash Table::hash() const {
-  auto ret = schema.hash;
-  for (auto r: rows) {
-    ret = combineOrderedHash(ret, r.hash);
+  std::vector<std::pair<string, ColumnType>> schema;
+  auto s = b.string();
+  size_t sz;
+  hps::from_string(s, sz);
+  for (auto i = 0; i < sz; i++) {
+    string colName;
+    int typeAsInt;
+    hps::from_string(s, colName);
+    hps::from_string(s, typeAsInt);
+    schema.push_back(std::make_pair(colName, (ColumnType)typeAsInt));
   }
-  return ret;
+  return Schema(schema);
 }
+
+
 
 Schema
 Table::getSchema() const {
@@ -38,6 +45,8 @@ Blob Table::serialize() const {
   return serializeHashStructure(MAGIC__TABLE, hashen);
 }
 
-Table Table::addCol(std::string name, Cell defaultVal) {
+Table Table::addCol(string name, Cell defaultVal) {
   auto curSchema = getSchema();
+  auto newSchema = curSchema;
+  return Table(store, Hashable(newSchema));
 }

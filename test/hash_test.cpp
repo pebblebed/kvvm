@@ -12,7 +12,7 @@ TEST(HashTest, testHex) {
       EXPECT_EQ(c, '0');
    }
 
-   memset(hr.bytes, 0xf1, sizeof(hr.bytes));
+   memset(&hr.bytes[0], 0xf1, sizeof(hr.bytes));
    pretty = hr.hex();
    for (int ii = 0; ii < OUTPUT_BYTES; ii++) {
        auto c = pretty[ii];

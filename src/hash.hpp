@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <array>
 
 #include <openssl/evp.h>
 
@@ -12,15 +13,20 @@ static const size_t HASH_BITS = 512;
 static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 static const size_t HASH_QUADS = HASH_BYTES / 8;
 
+typedef std::array<uint8_t, HASH_BYTES> HashBytes;
+
 struct Hash {
     union {
-        uint8_t bytes[HASH_BYTES];
-        uint64_t quads[HASH_QUADS];
+        HashBytes bytes;
+        std::array<uint64_t, HASH_QUADS> quads;
     };
-    public:
+
     Hash() {
-        memset(bytes, 0, sizeof(bytes));
+        memset(&bytes[0], 0, sizeof(bytes));
     }
+
+    Hash(HashBytes b)
+    : bytes(b) { }
 
     Hash(uint64_t q1, uint64_t q2, uint64_t q3, uint64_t q4,
          uint64_t q5, uint64_t q6, uint64_t q7, uint64_t q8) {

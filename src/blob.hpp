@@ -43,7 +43,12 @@ struct Blob {
     }
 
     std::string substr(int start, size_t len) const {
+        assert(start + len <= size);
         return std::string((const char*)bytes + start, len);
+    }
+
+    std::string string() const {
+        return substr(0, size);
     }
 };
 

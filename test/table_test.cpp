@@ -8,7 +8,7 @@
 
 TEST(TableTest, testConstruction) {
     InMemoryStore store;
-    Table t(store);
+    Table t(store, Schema{ {} });
 
     auto ser = t.serialize();
     EXPECT_EQ(ser.size, MAGIC_BYTES + sizeof(size_t) + sizeof(Hash));
@@ -17,7 +17,7 @@ TEST(TableTest, testConstruction) {
 
 TEST(TableTest, testAddCols) {
   InMemoryStore store;
-  Table empty(store);
+  Table empty(store, Schema{ {} });
 
   empty.addCol("birthday", Cell::f(123456789.0));
   empty.addCol("name", Cell::s(""));

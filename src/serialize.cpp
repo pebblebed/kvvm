@@ -13,42 +13,29 @@ using namespace std;
 
 Blob serializeHashStructure(Magic id, vector<Hash> hashes) {
     string ret;
-    hps::to_string(id, ret);
-    hps::to_string(hashes.size(), ret);
-    for (auto h: hashes) {
-      hps::to_string(h.bytes, ret);
+    hps::to_string<int>((int)id, ret);
+    hps::to_string<size_t>(hashes.size(), ret);
+    for (auto &h: hashes) {
+        hps::to_string<std::array<uint8_t, HASH_BYTES>>(h.bytes, ret);
     }
     return Blob(ret);
 }
 
 HashedStructResult deserializeHashStructure(const Blob& b) {
   HashedStructResult ret;
-  if (b.size < MAGIC_BYTES + sizeof(size_t)) {
-    throw std::invalid_argument("undersized hash structure blob");
+  string toParse((const char*)b.bytes, b.size);
+  int id;
+  hps::from_string<int>(toParse, id);
+  if (magicToStrMap.find((Magic)id) == magicToStrMap.end()) {
+    throw std::invalid_argument("invalid magic field");
   }
-  auto magicStr = std::string((const char*)b.bytes, MAGIC_BYTES);
-  auto magicp = magicToStrMap.find(magicStr);
-
-  if (magicp = magicToStrMap.end()) {
-    throw std::invalid_argument(std::string("unknown structure ID: ") +
-      magicStr);
+  size_t len;
+  hps::from_string<size_t>(toParse, len);
+  ret.hashen.reserve(len);
+  for (size_t i = 0; i < len; i++) {
+    array<uint8_t, HASH_BYTES> a;
+    hps::from_string<std::array<uint8_t, HASH_BYTES>>(toParse, a);
+    ret.hashen.push_back(Hash(a));
   }
-  ret.magic = *magicp;
-  int idx = MAGIC_BYTES;
-
-  uint64_t nhashes;
-  memcpy((char*)&nhashes, &b.bytes[idx], sizeof(uint64_t));
-  nhashes = ntohll(nhashes);
-  idx += sizeof(uint64_t);
-
-  if (b.size != (MAGIC_BYTES + sizeof(size_t) + nhashes * HASH_BYTES)) {
-    throw std::invalid_argument("wrong blob length");
-  }
-  ret.hashen.reserve(nhashes);
-  for (size_t i = 0; i < nhashes; i++) {
-    Hash h;
-    memcpy(h.bytes, b.bytes + idx, HASH_BYTES);
-    ret.hashen.push_back(h);
-    idx += HASH_BYTES;
-  }
+  return ret;
 }
