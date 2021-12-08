@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(OpenSSL REQUIRED)
 
+include_directories(AFTER src/hps/src)
 if(UNIX AND APPLE)
     include_directories(AFTER /opt/homebrew/opt/openssl/include)
 endif()
