@@ -31,8 +31,18 @@ add_library(
 )
 
 add_executable(
-  test_lowest_level
+  test_serialize
   test/serialize_test.cpp
+)
+target_link_libraries(
+  test_serialize
+  gtest_main
+  kvvm
+  OpenSSL::SSL
+)
+
+add_executable(
+  test_lowest_level
   test/hash_test.cpp
   test/blob_test.cpp
   test/istore_test.cpp

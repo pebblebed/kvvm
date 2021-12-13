@@ -22,16 +22,46 @@ struct Cell {
   const std::string String;
 
   static Cell s(std::string s) {
-    return Cell{
+    return Cell {
       STRING, { 0 }, s
     };
   }
 
   static Cell f(float f) {
     return Cell {
-      STRING, { .Float=f }, {}
+      STRING, { .Float=f }, ""
     };
   }
+
+  template <class B>
+  void serialize(B& buf) const {
+    buf << col;
+    switch (col) {
+    case STRING: {
+      buf << String;
+      break;
+    }
+    case BOOL: {
+      buf << u.Bool;
+      break;
+    }
+    
+    case FLOAT: {
+      buf << u.Float;
+      break;
+    }
+
+    case INT: {
+      buf << u.Int;
+      break;
+    }
+
+    default: {
+      assert(false);
+    }
+    }
+  }
+
 };
 
 struct Row {
