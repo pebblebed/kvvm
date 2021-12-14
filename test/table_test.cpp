@@ -11,8 +11,6 @@ TEST(TableTest, testConstruction) {
     Table t(store, Schema{ {} });
 
     auto ser = t.serialize();
-    EXPECT_EQ(ser.size, MAGIC_BYTES + sizeof(size_t) + sizeof(Hash));
-    EXPECT_EQ(*(uint64_t*)(&ser.bytes[MAGIC_BYTES]), 1);
 }
 
 TEST(TableTest, testAddCols) {
