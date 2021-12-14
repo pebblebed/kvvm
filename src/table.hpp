@@ -76,7 +76,8 @@ struct Serializable {
   }
 
   void christen(IStore& istore) const {
-    istore.save(serialize());
+    auto b = serialize();
+    istore.save(b);
   }
 };
 

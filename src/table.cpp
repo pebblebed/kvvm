@@ -1,3 +1,7 @@
+#include <string>
+#include <iostream>
+#include <sstream>
+
 #include "table.hpp"
 #include "serialize.hpp"
 #include "hps.h"
@@ -5,25 +9,25 @@
 using namespace std;
 
 Blob Schema::serialize() const {
-  string s;
-  hps::to_string(schema.size(), s);
+  ostringstream out;
+  hps::to_stream(schema.size(), out);
   for (auto row: schema) {
-     hps::to_string(row.first, s);
-     hps::to_string((int)row.second, s);
+     hps::to_stream(row.first, out);
+     hps::to_stream((int)row.second, out);
   }
-  return Blob(s);
+  return Blob(out.str());
 }
 
 Schema Schema::deserialize(const Blob& b) {
+  istringstream in(b.string());
   std::vector<std::pair<string, ColumnType>> schema;
-  auto s = b.string();
   size_t sz;
-  hps::from_string(s, sz);
+  hps::from_stream(in, sz);
   for (auto i = 0; i < sz; i++) {
     string colName;
     int typeAsInt;
-    hps::from_string(s, colName);
-    hps::from_string(s, typeAsInt);
+    hps::from_stream(in, colName);
+    hps::from_stream(in, typeAsInt);
     schema.push_back(std::make_pair(colName, (ColumnType)typeAsInt));
   }
   return Schema(schema);

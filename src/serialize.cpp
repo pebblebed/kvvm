@@ -5,7 +5,7 @@
 #include <vector>
 #include <cstdio>
 #include <iostream>
-#include <strstream>
+#include <sstream>
 
 #include "serialize.hpp"
 #include "hps.h"
@@ -13,7 +13,7 @@
 using namespace std;
 
 Blob serializeHashStructure(Magic id, vector<Hash> hashes) {
-    ostrstream out;
+    ostringstream out;
     hps::to_stream<int>((int)id, out);
     hps::to_stream<size_t>(hashes.size(), out);
     for (auto &h: hashes) {
