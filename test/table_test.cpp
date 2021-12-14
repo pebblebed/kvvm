@@ -15,6 +15,8 @@ TEST(TableTest, testConstruction) {
 
 TEST(TableTest, testAddCols) {
   InMemoryStore store;
+  Schema schema{ {} };
+  schema.christen(store);
   Table empty(store, Schema{ {} });
 
   empty.addCol("birthday", Cell::f(123456789.0));

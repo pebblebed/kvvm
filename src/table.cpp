@@ -46,7 +46,8 @@ Blob Table::serialize() const {
 }
 
 Table Table::addCol(string name, Cell defaultVal) {
-  auto curSchema = getSchema();
-  auto newSchema = curSchema;
+  auto prevCols = getSchema().getCols();
+  prevCols.push_back(make_pair(name, defaultVal.type));
+  auto newSchema = Schema(prevCols);
   return Table(store, Hashable(newSchema));
 }

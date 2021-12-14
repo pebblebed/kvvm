@@ -13,7 +13,7 @@ enum ColumnType {
 };
 
 struct Cell {
-  const ColumnType col;
+  const ColumnType type;
   const union {
     bool Bool;
     float Float;
@@ -35,8 +35,8 @@ struct Cell {
 
   template <class B>
   void serialize(B& buf) const {
-    buf << col;
-    switch (col) {
+    buf << type;
+    switch (type) {
     case STRING: {
       buf << String;
       break;
@@ -74,6 +74,10 @@ struct Serializable {
   Hash hash() const {
     return serialize().hash;
   }
+
+  void christen(IStore& istore) const {
+    istore.save(serialize());
+  }
 };
 
 template<typename Underlying /* as Serializable */>
@@ -98,6 +102,9 @@ class Schema : public Serializable {
   Schema(const std::vector<std::pair<std::string, ColumnType>>& cols)
   : schema(cols) { }
 
+  std::vector<std::pair<std::string, ColumnType>> getCols() const {
+    return schema;
+  }
   Blob serialize() const;
   static Schema deserialize(const Blob& b);
 };
