@@ -53,5 +53,6 @@ Table Table::addCol(string name, Cell defaultVal) {
   auto prevCols = getSchema().getCols();
   prevCols.push_back(make_pair(name, defaultVal.type));
   auto newSchema = Schema(prevCols);
+  newSchema.christen(store);
   return Table(store, Hashable(newSchema));
 }

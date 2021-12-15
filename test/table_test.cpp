@@ -19,6 +19,7 @@ TEST(TableTest, testAddCols) {
   schema.christen(store);
   Table empty(store, Schema{ {} });
 
-  empty.addCol("birthday", Cell::f(123456789.0));
-  empty.addCol("name", Cell::s(""));
+  auto newTable = empty
+      .addCol("birthday", Cell::f(123456789.0))
+      .addCol("name", Cell::s(""));
 }
