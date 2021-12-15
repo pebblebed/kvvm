@@ -4,7 +4,9 @@
 #include <cstdlib>
 #include <cstdint>
 #include <stdlib.h>
+#include <assert.h>
 
+#include "dbg.hpp"
 #include "hash.hpp"
 
 /*
@@ -23,6 +25,7 @@ struct Blob {
         , size(size)
         {
         auto vbytes = std::malloc(size);
+        dbg(blob, 3, "blob alloc (%zd) -> %p\n", size, vbytes);
         if (vbytes == nullptr) {
             throw std::bad_alloc();
         }
@@ -33,7 +36,12 @@ struct Blob {
     Blob(std::string s)
     : Blob((const uint8_t*)&s[0], s.length()) { }
 
+    // Need a copy ctor since Blob() has copy semantics
+    Blob(const Blob& rhs)
+    : Blob(rhs.bytes, rhs.size) { }
+
     ~Blob() {
+        dbg(blob, 3, "blob free (%p) sz %zd\n", bytes, size);
         std::free((void*)bytes);
     }
 

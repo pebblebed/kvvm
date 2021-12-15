@@ -28,6 +28,7 @@ add_library(
     src/istore.cpp
     src/table.cpp
     src/serialize.cpp
+    src/dbg.cpp
 )
 
 add_executable(
