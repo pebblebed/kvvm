@@ -7,6 +7,7 @@
 #define DEBUG_CLASSES \
     DEBUG_CLASS(_dbg) \
     DEBUG_CLASS(blob) \
+    DEBUG_CLASS(ser) \
     DEBUG_CLASS(table) 
 
 enum DebugClass {

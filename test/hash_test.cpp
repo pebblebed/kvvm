@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include "../src/hash.hpp"
+#include "../src/hps.h"
 
 TEST(HashTest, testHex) {
    Hash hr;
@@ -36,4 +37,16 @@ TEST(HashTest, testHash) {
     auto h3 = ch();
     std::cerr << h1.hex() << "\n" << h3.hex() << "\n";
     EXPECT_NE(h1, h3);
+}
+
+TEST(HashTest, serialize) {
+    auto str = "computing is fun!";
+    const auto strLen = strlen(str);
+    const auto target = computeHash((const uint8_t*)str, strLen);
+
+    std::string ser;
+    hps::to_string(target, ser);
+
+    auto result = hps::from_string<Hash>(ser);
+    EXPECT_EQ(result, target);
 }

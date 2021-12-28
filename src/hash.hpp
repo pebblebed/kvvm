@@ -45,6 +45,16 @@ struct Hash {
         }
         return out;
     }
+
+    template<typename B>
+    void serialize(B& b) const {
+        b << quads;
+    }
+
+    template<typename B>
+    void parse(B& b) {
+        b >> quads;
+    }
 };
 
 struct hash_hash {
