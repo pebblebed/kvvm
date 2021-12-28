@@ -30,6 +30,7 @@ HashedStructResult deserializeHashStructure(const Blob& b) {
   if (magicToStrMap.find((Magic)id) == magicToStrMap.end()) {
     throw std::invalid_argument("invalid magic field");
   }
+  ret.magic = (Magic)id;
   size_t len;
   hps::from_stream<size_t>(in, len);
   ret.hashen.reserve(len);

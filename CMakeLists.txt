@@ -71,4 +71,4 @@ target_link_libraries(
 include(GoogleTest)
 gtest_discover_tests(test_lowest_level)
 gtest_discover_tests(test_table)
-
+gtest_discover_tests(test_serialize)

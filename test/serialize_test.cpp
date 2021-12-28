@@ -9,4 +9,5 @@ TEST(Serialize, serlz) {
   });
 
   auto hStrResult = deserializeHashStructure(blob);
+  EXPECT_EQ(hStrResult.magic, MAGIC__TABLE);
 }
