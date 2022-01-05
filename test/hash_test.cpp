@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 
 #include <gtest/gtest.h>
 #include "../src/hash.hpp"
@@ -35,7 +36,6 @@ TEST(HashTest, testHash) {
     EXPECT_EQ(h1, h2);
     salt++;
     auto h3 = ch();
-    std::cerr << h1.hex() << "\n" << h3.hex() << "\n";
     EXPECT_NE(h1, h3);
 }
 

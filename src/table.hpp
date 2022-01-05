@@ -4,120 +4,87 @@
 
 #include "hash.hpp"
 #include "istore.hpp"
-
-enum ColumnType {
-  STRING,
-  BOOL,
-  FLOAT,
-  INT
-};
+#include "serialize.hpp"
+#include "schema.hpp"
 
 struct Cell {
-  const ColumnType type;
-  const union {
-    bool Bool;
-    float Float;
-    int Int;
-  } u;
-  const std::string String;
+    const ColumnType type = NUL;
+    const union {
+        bool Bool;
+        double Float;
+        int64_t Int;
+    } u = { .Int = 0 };
+    const std::string String;
 
-  static Cell s(std::string s) {
-    return Cell {
-      STRING, { 0 }, s
-    };
-  }
-
-  static Cell f(float f) {
-    return Cell {
-      STRING, { .Float=f }, ""
-    };
-  }
-
-  template <class B>
-  void serialize(B& buf) const {
-    buf << type;
-    switch (type) {
-    case STRING: {
-      buf << String;
-      break;
-    }
-    case BOOL: {
-      buf << u.Bool;
-      break;
-    }
-    
-    case FLOAT: {
-      buf << u.Float;
-      break;
+    static Cell s(std::string s) {
+        return Cell {
+            STRING, { 0 }, s
+        };
     }
 
-    case INT: {
-      buf << u.Int;
-      break;
+    static Cell f(float f) {
+        return Cell {
+            STRING, { .Float=f }, ""
+        };
     }
 
-    default: {
-      assert(false);
-    }
-    }
-  }
+    template <class B>
+    void serialize(B& buf) const {
+        buf << (int)type;
+        switch (type) {
+        case NUL: return;
+        case STRING:
+                  buf << String;
+                  return;
+        case BOOL:
+                  buf << u.Bool;
+                  return;
+        case FLOAT:
+                  buf << u.Float;
+                  return;
+        case INT:
+                  buf << u.Int;
+                  return;
+        }
 
+    }
+
+    template<class B>
+    void parse(B& buf) {
+        int ict;
+        buf >> ict;
+        auto ct = ColumnType(ict);
+        (ColumnType&)type = ct;
+        switch(ct) {
+        case NUL:
+            return;
+        case STRING:
+            buf >> (std::string&)String;
+            return;
+        case BOOL:
+            buf >> (bool&)u.Bool;
+            return;
+        case FLOAT:
+            buf >> (double&)u.Float;
+            return;
+        case INT:
+            buf >> (int64_t&)u.Int;
+            return;
+        }
+        throw std::runtime_error("Unknown cell type");
+    }
+
+    bool operator==(const Cell& rhs) const {
+        if (type != rhs.type) return false;
+        if (type == STRING) return rhs.String == String;
+        return rhs.u.Int == u.Int;
+    }
 };
-
 struct Row {
-  std::vector<Cell> cells;
+    std::vector<Cell> cells;
 };
 
-struct Serializable {
-  virtual Blob serialize() const = 0;
-
-  Hash hash() const {
-    return serialize().hash;
-  }
-
-  void christen(IStore& istore) const {
-    auto b = serialize();
-    istore.save(b);
-  }
-};
-
-template<typename Underlying /* as Serializable */>
-struct Hashable {
-  Hash hash;
-
-  Hashable(const Underlying& u)
-  : hash(u.hash())
-  { }
-
-  Underlying materialize(IStore& store) const {
-    auto s = store.get(hash);
-    return Underlying::deserialize(s);
-  }
-};
-
-class Schema : public Serializable {
-  std::vector<std::pair<std::string, ColumnType>> schema;
-
-  public:
-
-  Schema(const std::vector<std::pair<std::string, ColumnType>>& cols)
-  : schema(cols) { }
-
-  std::vector<std::pair<std::string, ColumnType>> getCols() const {
-    return schema;
-  }
-  Blob serialize() const;
-  static Schema deserialize(const Blob& b);
-};
-
-class RowBank : public Serializable {
-  public:
-
-  Blob serialize() const;
-  static RowBank deserialize(const Blob& b);
-};
-
-class Table : public Serializable {
+class Table : public BlobInternalNode {
   IStore &store;
   std::vector<Hashable<RowBank>> rows;
   Hashable<Schema> schema;
@@ -128,7 +95,7 @@ class Table : public Serializable {
   , schema(schema) { }
   ~Table() { }
 
-  Blob serialize() const;
+  HashedStruct flatten() const;
   static Table deserialize(const Blob& b);
 
   Schema getSchema() const;

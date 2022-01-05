@@ -55,6 +55,22 @@ struct Hash {
     void parse(B& b) {
         b >> quads;
     }
+
+    template<typename OStream>
+    OStream& operator<<(OStream& out) const {
+        for (int i = 0; i < HASH_QUADS; i++) {
+            out << quads;
+        }
+        return out;
+    }
+
+    template<typename IStream>
+    IStream& operator>>(IStream& in) {
+        for (int i = 0; i < HASH_QUADS; i++){
+            in >> quads;
+        }
+        return in;
+    }
 };
 
 struct hash_hash {
