@@ -61,6 +61,7 @@ target_link_libraries(
 add_executable(
   test_table
   test/table_test.cpp
+  test/schema_test.cpp
 )
 
 target_link_libraries(

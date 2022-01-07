@@ -66,6 +66,10 @@ struct HashedStruct {
 struct BlobNode {
     virtual Blob toBlob() const = 0;
 
+    Hash hash() const {
+        return toBlob().hash;
+    }
+
     void christen(IStore& istore) const {
         istore.save(toBlob());
     }
@@ -82,10 +86,6 @@ struct BlobInternalNode : public BlobNode {
         return Blob(hps::to_string(flatten()));
     }
 
-    Hash hash() const {
-        return toBlob().hash;
-    }
-
     template<typename B>
     void serialize(B& out) const {
         out << flatten();
@@ -96,11 +96,15 @@ template<typename Underlying /* as Serializable */>
 struct Hashable {
     Hash hash;
 
+    Hashable(const Hash h)
+        : hash(h)
+    { }
+
     Hashable(const Underlying& u)
         : hash(u.hash())
     { }
 
-    Underlying materialize(IStore& store) const {
+    Underlying materialize(IStore& store) {
         return Underlying::deserialize(store.get(hash));
     }
 };
