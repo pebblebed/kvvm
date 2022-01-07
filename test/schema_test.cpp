@@ -4,11 +4,18 @@
 
 TEST(SchemaTest, serde) {
   InMemoryStore store;
-  Schema schema{ {} };
+  std::vector<std::pair<std::string, ColumnType>> cols {
+      std::make_pair(std::string("name"), ColumnType::STRING),
+  };
+
+  Schema schema{ cols };
   schema.christen(store);
 
   Hashable<Schema> hash(schema.toBlob().hash);
   auto remat = hash.materialize(store);
 
-  EXPECT_EQ(remat.getCols(), schema.getCols());
+  const auto rematCols = remat.getCols();
+  const auto origCols = schema.getCols();
+  EXPECT_EQ(rematCols, origCols);
+  EXPECT_EQ(rematCols.size(), 1);
 }
