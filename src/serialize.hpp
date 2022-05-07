@@ -4,10 +4,69 @@
 #include <string>
 #include <vector>
 
-#include "hps/src/hps.h"
+// #include "hps/src/hps.h"
 #include "hash.hpp"
 #include "istore.hpp"
 #include "blob.hpp"
+
+struct HashedStruct;
+
+namespace SerImpl {
+
+/*
+ * OutBuf types have a "produce(uint8_t)" method.
+ * InBuf has a "consume(uint8_t)".
+ */
+// varint impl
+template<typename T> int clz(T x);
+
+template<typename I, typename Out> void encode(I i, Out out) {
+    if (i == 0) { out.produce(0); return; }
+
+    auto maxBits = sizeof(I) * 8;
+    int leadingZeros = clz((I)i);
+    assert(leadingZeros < maxBits);
+    auto nonZeroBytes = sizeof(I) - leadingZeros / 8;
+    assert(nonZeroBytes > 0);
+    assert(nonZeroBytes < UINT8_MAX);
+    out.produce(nonZeroBytes);
+    for (auto ii = 0; ii < nonZeroBytes; ii++) {
+        out.produce(i & 0xff);
+        i >>= 8;
+	}
+}
+
+template<typename I, typename In> I decode(In in) {
+    auto nBytes = in.consume();
+    I retval = 0;
+    if (nBytes == 0) return retval;
+    for (auto ii = 0; ii < nBytes; ii++) {
+        retval = (retval << 0xff) + in.consume();
+    }
+	return retval;
+}
+
+class OutBuffer {
+    std::string& buf;
+public:
+    OutBuffer(std::string& buf) : buf(buf) {} 
+    void produce(uint8_t b) {
+        buf.resize(buf.size() + 1);
+        buf[buf.size() - 1] = b;
+    }
+};
+
+static inline std::string to_string(const int i) {
+    std::string retval;
+    OutBuffer out(retval);
+    encode(i, out);
+    return retval;
+}
+
+std::string to_string(long unsigned int li);
+std::string to_string(const HashedStruct& hs);
+
+}
 
 /*
  * A lot of structures are merkle graphs. We're tackling a DBMS first
@@ -83,7 +142,7 @@ struct BlobInternalNode : public BlobNode {
     virtual HashedStruct flatten() const = 0;
 
     Blob toBlob() const {
-        return Blob(hps::to_string(flatten()));
+        return Blob(SerImpl::to_string(flatten()));
     }
 
     template<typename B>

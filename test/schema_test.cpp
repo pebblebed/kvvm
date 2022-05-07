@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "../src/schema.hpp"
+#include "../src/dbg.hpp"
 
 TEST(SchemaTest, serde) {
   InMemoryStore store;
@@ -13,6 +14,7 @@ TEST(SchemaTest, serde) {
 
   Hashable<Schema> hash(schema.toBlob().hash);
   auto remat = hash.materialize(store);
+  dbg(ser, 0, "blobinz: %s\n", schema.toBlob().hash.hex().c_str());
 
   const auto rematCols = remat.getCols();
   const auto origCols = schema.getCols();
