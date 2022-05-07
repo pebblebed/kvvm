@@ -41,7 +41,7 @@ template<typename I, typename In> I decode(In in) {
     I retval = 0;
     if (nBytes == 0) return retval;
     for (auto ii = 0; ii < nBytes; ii++) {
-        retval = (retval << 0xff) + in.consume();
+        retval = (retval << 8) + in.consume();
     }
 	return retval;
 }
@@ -53,6 +53,17 @@ public:
     void produce(uint8_t b) {
         buf.resize(buf.size() + 1);
         buf[buf.size() - 1] = b;
+    }
+};
+
+class InBuffer {
+    const std::string& buf;
+    std::string::const_iterator it;
+public:
+    InBuffer(const std::string& buf) : buf(buf), it(buf.begin()) { }
+
+    uint8_t consume() {
+        return uint8_t(*it++);
     }
 };
 
