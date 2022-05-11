@@ -2,27 +2,29 @@
 #include <sstream>
 
 using namespace std;
+using namespace SerImpl;
 
 Blob Schema::toBlob() const {
-  ostringstream out;
-  out << schema.size();
+  std::string outstr;
+  OutBuffer out(outstr);
+  encode(schema.size(), out);
   for (auto row: schema) {
-     out << row.first;
-     out << (int)row.second;
+    encode(row.first, out);
+    encode((uint64_t)row.second, out);
   }
-  return Blob(out.str());
+  return Blob(outstr);
 }
 
 Schema Schema::deserialize(const Blob& b) {
-  istringstream in(b.string());
+  InBuffer in(b.string());
   std::vector<std::pair<string, ColumnType>> schema;
   size_t sz;
-  in >> sz;
+  decode(in, sz);
   for (auto i = 0; i < sz; i++) {
-    string colName;
+    std::string colName;
     int typeAsInt;
-    in >> colName;
-    in >> typeAsInt;
+    decode(in, colName);
+    decode(in, typeAsInt);
     schema.push_back(std::make_pair(colName, (ColumnType)typeAsInt));
   }
   return Schema(schema);

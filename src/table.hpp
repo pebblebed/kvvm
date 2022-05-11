@@ -30,45 +30,45 @@ struct Cell {
 
     template <class B>
     void serialize(B& buf) const {
-        buf << (int)type;
+        using namespace SerImpl;
+        encode((int)type, buf);
         switch (type) {
         case NUL: return;
         case STRING:
-                  buf << String;
+                  encode(String, buf);
                   return;
         case BOOL:
-                  buf << u.Bool;
+                  encode(u.Bool, buf);
                   return;
         case FLOAT:
-                  buf << u.Float;
+                  encode(u.Float, buf);
                   return;
         case INT:
-                  buf << u.Int;
+                  encode(u.Int, buf);
                   return;
         }
 
     }
 
-    template<class B>
-    void parse(B& buf) {
-        int ict;
-        buf >> ict;
+    void decode(SerImpl::InBuffer& buf) {
+        size_t ict;
+        SerImpl::decode(buf, ict);
         auto ct = ColumnType(ict);
         (ColumnType&)type = ct;
         switch(ct) {
         case NUL:
             return;
         case STRING:
-            buf >> (std::string&)String;
+            SerImpl::decode(buf, (std::string&)String);
             return;
         case BOOL:
-            buf >> (bool&)u.Bool;
+            SerImpl::decode(buf, u.Bool);
             return;
         case FLOAT:
-            buf >> (double&)u.Float;
+            SerImpl::decode(buf, u.Float);
             return;
         case INT:
-            buf >> (int64_t&)u.Int;
+            SerImpl::decode(buf, u.Int);
             return;
         }
         throw std::runtime_error("Unknown cell type");

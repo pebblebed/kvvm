@@ -14,13 +14,32 @@ struct HashedStruct;
 namespace SerImpl {
 
 /*
- * OutBuf types have a "produce(uint8_t)" method.
- * InBuf has a "consume(uint8_t)".
+ * Simple bytebuffer classes. Creator of the buffer owns the storage; i.e.,
+ * underlying std::string is not managed by these classes.
  */
+
+class InBuffer {
+    const std::string& buf;
+    std::string::const_iterator it;
+public:
+    InBuffer(const std::string& buf) : buf(buf), it(buf.begin()) { }
+    uint8_t consume();
+};
+
+class OutBuffer {
+    std::string& buf;
+public:
+    OutBuffer(std::string& buf) : buf(buf) {}
+    void produce(uint8_t b);
+    const std::string& str() const { return buf; }
+    InBuffer asInBuffer() const { return InBuffer(buf); }
+    Blob toBlob() const;
+};
+
 // varint impl
 template<typename T> int clz(T x);
 
-template<typename I, typename Out> void encode(I i, Out out) {
+template<typename I> void encode_int_impl(I i, OutBuffer& out) {
     if (i == 0) { out.produce(0); return; }
 
     auto maxBits = sizeof(I) * 8;
@@ -36,46 +55,36 @@ template<typename I, typename Out> void encode(I i, Out out) {
 	}
 }
 
-template<typename I, typename In> I decode(In in) {
-    auto nBytes = in.consume();
-    I retval = 0;
-    if (nBytes == 0) return retval;
-    for (auto ii = 0; ii < nBytes; ii++) {
-        retval = (retval << 8) + in.consume();
+void encode(std::string s, OutBuffer& b);
+void encode(uint64_t u64, OutBuffer& b);
+void encode(uint8_t u8, OutBuffer& b);
+
+template<typename Inner>
+void encode_vector(const std::vector<Inner>& vec, OutBuffer& b) {
+    encode(vec.size(), b);
+    for (const auto& inner: vec) {
+        encode(inner, b);
     }
-	return retval;
 }
 
-class OutBuffer {
-    std::string& buf;
-public:
-    OutBuffer(std::string& buf) : buf(buf) {} 
-    void produce(uint8_t b) {
-        buf.resize(buf.size() + 1);
-        buf[buf.size() - 1] = b;
-    }
-};
-
-class InBuffer {
-    const std::string& buf;
-    std::string::const_iterator it;
-public:
-    InBuffer(const std::string& buf) : buf(buf), it(buf.begin()) { }
-
-    uint8_t consume() {
-        return uint8_t(*it++);
-    }
-};
-
-static inline std::string to_string(const int i) {
-    std::string retval;
-    OutBuffer out(retval);
-    encode(i, out);
-    return retval;
+template<typename Inner>
+void encode(const std::vector<Inner>& val, OutBuffer& b) {
+    encode_vector<Inner>(val, b);
 }
 
-std::string to_string(long unsigned int li);
-std::string to_string(const HashedStruct& hs);
+void decode(InBuffer& in, std::string& str);
+void decode(InBuffer& in, uint64_t u64);
+
+template<typename Inner>
+void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
+    size_t sz;
+    decode(b, sz);
+    vec.reserve(sz);
+    for (typeof(sz) i = 0; i < sz; i++) {
+        Inner inner;
+        vec.emplace_back(decode(b, inner));
+    }
+}
 
 }
 
@@ -122,14 +131,14 @@ struct HashedStruct {
     Magic magic;
     std::vector<Hash> hashen;
 
-    template<typename B> void
-    parse(B& b) {
-        b >> (int&)magic >> hashen;
+    static HashedStruct
+    decode(SerImpl::InBuffer& buf) {
+        assert(false); // not implemented
     }
 
-    template<typename B> void
-    serialize(B& b) const {
-        b << (int)magic << hashen;
+    void
+    encode(SerImpl::OutBuffer& buf) const {
+        assert(false); // not implemented
     }
 };
 
@@ -153,12 +162,10 @@ struct BlobInternalNode : public BlobNode {
     virtual HashedStruct flatten() const = 0;
 
     Blob toBlob() const {
-        return Blob(SerImpl::to_string(flatten()));
-    }
-
-    template<typename B>
-    void serialize(B& out) const {
-        out << flatten();
+        std::string data;
+        SerImpl::OutBuffer outbuf(data);
+        flatten().encode(outbuf);
+        return Blob(outbuf.str());
     }
 };
 
