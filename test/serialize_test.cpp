@@ -13,7 +13,7 @@ TEST(Serialize, serlz_int_0) {
     EXPECT_EQ(data[0], '\0');
 
     SerImpl::InBuffer in(data);
-    int deser;
+    uint64_t deser;
     decode(in, deser);
     EXPECT_EQ(deser, 0);
 }
@@ -26,7 +26,7 @@ TEST(Serialize, serlz_int_larger) {
     EXPECT_EQ(data.size(), 2);
 
     InBuffer in(data);
-    int deser;
+    uint64_t deser;
     decode(in, deser);
     EXPECT_EQ(deser, 1);
 }

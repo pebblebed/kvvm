@@ -14,71 +14,19 @@ struct Cell {
         double Float;
         int64_t Int;
     } u = { .Int = 0 };
+
     const std::string String;
 
-    static Cell s(std::string s) {
-        return Cell {
-            STRING, { 0 }, s
-        };
-    }
+    static Cell null();
+    static Cell s(std::string s);
+    static Cell b(bool b);
+    static Cell f(float f);
+    static Cell i(int64_t i64);
+    static Cell decode(SerImpl::InBuffer& buf);
 
-    static Cell f(float f) {
-        return Cell {
-            STRING, { .Float=f }, ""
-        };
-    }
+    void encode(SerImpl::OutBuffer& buf) const;
 
-    template <class B>
-    void serialize(B& buf) const {
-        using namespace SerImpl;
-        encode((int)type, buf);
-        switch (type) {
-        case NUL: return;
-        case STRING:
-                  encode(String, buf);
-                  return;
-        case BOOL:
-                  encode(u.Bool, buf);
-                  return;
-        case FLOAT:
-                  encode(u.Float, buf);
-                  return;
-        case INT:
-                  encode(u.Int, buf);
-                  return;
-        }
-
-    }
-
-    void decode(SerImpl::InBuffer& buf) {
-        size_t ict;
-        SerImpl::decode(buf, ict);
-        auto ct = ColumnType(ict);
-        (ColumnType&)type = ct;
-        switch(ct) {
-        case NUL:
-            return;
-        case STRING:
-            SerImpl::decode(buf, (std::string&)String);
-            return;
-        case BOOL:
-            SerImpl::decode(buf, u.Bool);
-            return;
-        case FLOAT:
-            SerImpl::decode(buf, u.Float);
-            return;
-        case INT:
-            SerImpl::decode(buf, u.Int);
-            return;
-        }
-        throw std::runtime_error("Unknown cell type");
-    }
-
-    bool operator==(const Cell& rhs) const {
-        if (type != rhs.type) return false;
-        if (type == STRING) return rhs.String == String;
-        return rhs.u.Int == u.Int;
-    }
+    bool operator==(const Cell& rhs) const;
 };
 struct Row {
     std::vector<Cell> cells;

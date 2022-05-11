@@ -22,7 +22,7 @@ Schema Schema::deserialize(const Blob& b) {
   decode(in, sz);
   for (auto i = 0; i < sz; i++) {
     std::string colName;
-    int typeAsInt;
+    uint64_t typeAsInt;
     decode(in, colName);
     decode(in, typeAsInt);
     schema.push_back(std::make_pair(colName, (ColumnType)typeAsInt));

@@ -36,28 +36,13 @@ public:
     Blob toBlob() const;
 };
 
-// varint impl
-template<typename T> int clz(T x);
-
-template<typename I> void encode_int_impl(I i, OutBuffer& out) {
-    if (i == 0) { out.produce(0); return; }
-
-    auto maxBits = sizeof(I) * 8;
-    int leadingZeros = clz((I)i);
-    assert(leadingZeros < maxBits);
-    auto nonZeroBytes = sizeof(I) - leadingZeros / 8;
-    assert(nonZeroBytes > 0);
-    assert(nonZeroBytes < UINT8_MAX);
-    out.produce(nonZeroBytes);
-    for (auto ii = 0; ii < nonZeroBytes; ii++) {
-        out.produce(i & 0xff);
-        i >>= 8;
-	}
-}
-
 void encode(std::string s, OutBuffer& b);
 void encode(uint64_t u64, OutBuffer& b);
+void encode(int64_t i64, OutBuffer& b);
 void encode(uint8_t u8, OutBuffer& b);
+void encode(double d, OutBuffer& b);
+void encode(float f, OutBuffer& b);
+void encode(bool boo, OutBuffer& b);
 
 template<typename Inner>
 void encode_vector(const std::vector<Inner>& vec, OutBuffer& b) {
@@ -73,7 +58,10 @@ void encode(const std::vector<Inner>& val, OutBuffer& b) {
 }
 
 void decode(InBuffer& in, std::string& str);
-void decode(InBuffer& in, uint64_t u64);
+void decode(InBuffer& in, uint64_t& u64);
+void decode(InBuffer& in, int64_t& i64);
+void decode(InBuffer& in, double& d);
+void decode(InBuffer& in, bool& b);
 
 template<typename Inner>
 void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
