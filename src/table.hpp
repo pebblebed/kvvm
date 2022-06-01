@@ -32,7 +32,12 @@ struct Row {
     std::vector<Cell> cells;
 };
 
-class Table : public BlobInternalNode {
+class DataSet : public BlobInternalNode {
+    virtual HashedStruct flatten() const = 0;
+    virtual Schema getSchema() const = 0;
+};
+
+class Table : public DataSet {
   IStore &store;
   std::vector<Hashable<RowBank>> rows;
   Hashable<Schema> schema;
@@ -43,12 +48,18 @@ class Table : public BlobInternalNode {
   , schema(schema) { }
   ~Table() { }
 
-  HashedStruct flatten() const;
+  virtual HashedStruct flatten() const;
   static Table deserialize(const Blob& b);
 
-  Schema getSchema() const;
+  virtual Schema getSchema() const;
+  
   Table addCol(std::string name, Cell defaultVal);
   Table addRow(Row row);
-
 };
 
+// A Slice is a subset of the columns of a dataset
+class Slice: public DataSet {
+    Slice(const DataSet& underlying, const Schema& slice);
+    virtual HashedStruct flatten() const;
+    virtual Schema getSchema() const;
+};
