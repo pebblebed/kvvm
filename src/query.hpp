@@ -1,10 +1,18 @@
 #pragma once
 #include "table.hpp"
 
-struct Slice {
+struct Query : public DataSet {
+
+};
+
+struct Slice : public Query {
     
 };
 
-struct Query {
+struct Filter: public Query {
+
+};
+
+struct Join: public Query {
 
 };
