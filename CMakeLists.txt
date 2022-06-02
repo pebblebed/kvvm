@@ -31,6 +31,7 @@ add_library(
     src/schema.cpp
     src/serialize.cpp
     src/dbg.cpp
+    src/blob.cpp
 )
 
 add_executable(
