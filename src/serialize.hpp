@@ -68,7 +68,7 @@ void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
     size_t sz;
     decode(b, sz);
     vec.reserve(sz);
-    for (typeof(sz) i = 0; i < sz; i++) {
+    for (size_t i = 0; i < sz; i++) {
         Inner inner;
         vec.emplace_back(decode(b, inner));
     }
@@ -88,9 +88,12 @@ void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
 const int MAGIC_BYTES = 6;
 
 #define MAGICS() \
-   MAGIC(SCHEMA) \
-   MAGIC(ROWBNK) \
-   MAGIC(_TABLE)
+    MAGIC(SCHEMA) \
+    MAGIC(ROWBNK) \
+    MAGIC(_TABLE) \
+    MAGIC(_SLICE) \
+    MAGIC(FILTER) \
+    MAGIC(__JOIN)
 
 enum Magic {
 #define MAGIC(x) \

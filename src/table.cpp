@@ -3,30 +3,34 @@
 
 #include "table.hpp"
 #include "serialize.hpp"
-#include "hps.h"
 
 using namespace std;
 
 Schema
-Table::getSchema() const {
-  return Schema::deserialize(store.get(schema.hash));
+Table::schema() const {
+    return Schema::deserialize(store_.get(schema_.hash));
 }
 
 HashedStruct Table::flatten() const {
   HashedStruct hs;
   hs.magic = MAGIC__TABLE;
-  for (auto r: rows) {
+  for (auto r: rows_) {
     hs.hashen.push_back(r.hash);
   }
   return hs;
 }
 
 Table Table::addCol(string name, Cell defaultVal) {
-  auto prevCols = getSchema().getCols();
+  auto prevCols = schema().getCols();
   prevCols.push_back(make_pair(name, defaultVal.type));
   auto newSchema = Schema(prevCols);
-  newSchema.christen(store);
-  return Table(store, Hashable<Schema>(newSchema));
+  newSchema.christen(store_);
+  return Table(store_, Hashable<Schema>(newSchema));
+}
+
+RowBanks Table::rows() const {
+    RowBanks ret;
+    return ret;
 }
 
 Cell Cell::null() {
@@ -73,7 +77,7 @@ Cell Cell::decode(SerImpl::InBuffer& buf) {
     case BOOL: {
         bool boo;
         SerImpl::decode(buf, boo);
-        return b(b);
+        return b(boo);
     }
     case FLOAT: {
         double d;

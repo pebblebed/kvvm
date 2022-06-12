@@ -25,13 +25,14 @@ enable_testing()
 
 add_library(
     kvvm
-    src/hash.cpp
-    src/istore.cpp
     src/table.cpp
     src/schema.cpp
+    src/query.cpp
+    src/hash.cpp
+    src/blob.cpp
+    src/istore.cpp
     src/serialize.cpp
     src/dbg.cpp
-    src/blob.cpp
 )
 
 add_executable(

@@ -31,7 +31,7 @@ struct Hash {
     Hash(uint64_t q1, uint64_t q2, uint64_t q3, uint64_t q4,
          uint64_t q5, uint64_t q6, uint64_t q7, uint64_t q8) {
          quads[0] = q1; quads[1] = q2; quads[2] = q3; quads[3] = q4;
-         quads[4] = q6; quads[5] = q6; quads[6] = q7; quads[7] = q8;
+         quads[4] = q5; quads[5] = q6; quads[6] = q7; quads[7] = q8;
     }
     std::string hex() const;
 
@@ -58,7 +58,7 @@ struct Hash {
 
     template<typename OStream>
     OStream& operator<<(OStream& out) const {
-        for (int i = 0; i < HASH_QUADS; i++) {
+        for (size_t i = 0; i < HASH_QUADS; i++) {
             out << quads;
         }
         return out;
@@ -66,7 +66,7 @@ struct Hash {
 
     template<typename IStream>
     IStream& operator>>(IStream& in) {
-        for (int i = 0; i < HASH_QUADS; i++){
+        for (size_t i = 0; i < HASH_QUADS; i++){
             in >> quads;
         }
         return in;
