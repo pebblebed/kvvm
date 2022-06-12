@@ -28,7 +28,7 @@ Table Table::addCol(string name, Cell defaultVal) {
   return Table(store_, Hashable<Schema>(newSchema));
 }
 
-RowBanks Table::rows() const {
+DataSet::RowBanks Table::rows() const {
     RowBanks ret;
     return ret;
 }

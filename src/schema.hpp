@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SCHEMA_incl_
+#define SCHEMA_incl_
 
 #include <vector>
 #include <unordered_set>
@@ -61,3 +62,4 @@ class RowBank : public BlobNode {
   static RowBank deserialize(const Blob& b);
 };
 
+#endif

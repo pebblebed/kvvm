@@ -1,4 +1,5 @@
-#pragma once
+#ifndef SERIALIZE_incl_
+#define SERIALIZE_incl_
 
 #include <unordered_map>
 #include <string>
@@ -85,7 +86,6 @@ void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
  * ideas about how to serde their runtime representation into a list of
  * hashes.
  */
-const int MAGIC_BYTES = 6;
 
 #define MAGICS() \
     MAGIC(SCHEMA) \
@@ -123,12 +123,12 @@ struct HashedStruct {
     std::vector<Hash> hashen;
 
     static HashedStruct
-    decode(SerImpl::InBuffer& buf) {
+    decode(SerImpl::InBuffer& ) {
         assert(false); // not implemented
     }
 
     void
-    encode(SerImpl::OutBuffer& buf) const {
+    encode(SerImpl::OutBuffer& ) const {
         assert(false); // not implemented
     }
 };
@@ -177,3 +177,5 @@ struct Hashable {
     }
 };
 
+
+#endif

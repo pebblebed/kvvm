@@ -1,4 +1,5 @@
-#pragma once
+#ifndef HASH_incl_
+#define HASH_incl_
 
 #include <string>
 #include <cstdint>
@@ -95,3 +96,5 @@ class HashState {
 Hash computeHash(const uint8_t* bytes, size_t sz);
 
 Hash combineOrderedHash(Hash old, Hash newHash);
+
+#endif

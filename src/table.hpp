@@ -1,4 +1,5 @@
-#pragma once
+#ifndef TABLE_incl_
+#define TABLE_incl_
 
 #include <vector>
 
@@ -60,3 +61,5 @@ class Table : public DataSet {
     Table addCol(std::string name, Cell defaultVal);
     Table addRow(Row row);
 };
+
+#endif

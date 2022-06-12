@@ -1,5 +1,4 @@
 #include "schema.hpp"
-#include <sstream>
 
 using namespace std;
 using namespace SerImpl;
@@ -20,7 +19,7 @@ Schema Schema::deserialize(const Blob& b) {
   std::vector<std::pair<string, ColumnType>> schema;
   size_t sz;
   decode(in, sz);
-  for (auto i = 0; i < sz; i++) {
+  for (size_t i = 0; i < sz; i++) {
     std::string colName;
     uint64_t typeAsInt;
     decode(in, colName);

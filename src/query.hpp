@@ -1,4 +1,6 @@
-#pragma once
+#ifndef QUERY_incl_
+#define QUERY_incl_
+
 #include "table.hpp"
 
 struct Query : public DataSet {
@@ -16,3 +18,5 @@ struct Filter: public Query {
 struct Join: public Query {
 
 };
+
+#endif
