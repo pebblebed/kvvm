@@ -36,23 +36,7 @@ class Schema : public BlobNode {
         return toBlob().hash;
     }
 
-    Schema slice(std::vector<ColumnName> names) {
-      std::vector<ColumnDesc> retcols;
-      std::unordered_set<ColumnName> dedupedNames;
-      for (const auto& n: names) {
-        dedupedNames.insert(n);
-      }
-      for (const auto& n: dedupedNames) {
-        auto it = std::find_if(schema.begin(), schema.end(), [&n](const ColumnDesc& it) {
-          return it.first == n;
-        });
-        if (it == schema.end()) {
-          throw std::runtime_error(std::string("no such column: ") + n);
-        }
-        retcols.push_back(*it);
-      }
-      return Schema(retcols);
-    }
+    Schema slice(std::vector<ColumnName> names) const; 
 };
 
 class RowBank : public BlobNode {

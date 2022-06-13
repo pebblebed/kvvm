@@ -21,3 +21,18 @@ TEST(SchemaTest, serde) {
   EXPECT_EQ(rematCols, origCols);
   EXPECT_EQ(rematCols.size(), 1);
 }
+
+TEST(SchemaTest, slice) {
+    InMemoryStore store;
+    auto cols = {
+        std::make_pair(std::string("name"), ColumnType::STRING),
+        std::make_pair(std::string("postCode"), ColumnType::INT),
+    };
+    Schema schema{ cols };
+
+    auto newSchema = schema.slice( { std::string("postCode") } );
+    auto newCols = newSchema.getCols();
+    EXPECT_EQ(newCols.size(), 1);
+    EXPECT_EQ(newCols[0].first, std::string("postCode"));
+    EXPECT_EQ(newCols[0].second, ColumnType::INT);
+}
