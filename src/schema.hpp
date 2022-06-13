@@ -6,18 +6,7 @@
 #include <algorithm>
 #include "blob.hpp"
 #include "serialize.hpp"
-
-enum ColumnType {
-  NUL,
-  STRING,
-  BOOL,
-  FLOAT,
-  INT
-};
-
-typedef std::string ColumnName;
-typedef std::pair<ColumnName, ColumnType> ColumnDesc;
-typedef std::vector<ColumnName> SliceDesc;
+#include "cell.hpp"
 
 // A Schema is a leaf, with its own full-custom treatment of 
 class Schema : public BlobNode {
@@ -38,6 +27,14 @@ class Schema : public BlobNode {
     }
 
     Schema slice(const SliceDesc& slice) const; 
+
+    struct TypeMismatch {
+        std::string name;
+        ColumnType expected;
+        ColumnType found;
+    };
+
+    std::vector<TypeMismatch> check(const std::vector<Cell>& cells) const;
 };
 
 class RowBank : public BlobNode {

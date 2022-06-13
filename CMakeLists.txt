@@ -26,8 +26,9 @@ enable_testing()
 add_library(
     kvvm
     src/table.cpp
-    src/schema.cpp
     src/query.cpp
+    src/schema.cpp
+    src/cell.cpp
     src/hash.cpp
     src/blob.cpp
     src/istore.cpp
