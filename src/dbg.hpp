@@ -1,4 +1,5 @@
-#pragma once
+#ifndef DBG_incl_
+#define DBG_incl_
 
 #include <cstdint>
 #include <cstdio>
@@ -24,5 +25,7 @@ extern int debug_levels[NumDebugClasses];
 #define dbg(...) do {} while(0)
 #else
 extern void dbg(DebugClass cls, int level, const char* fmt, ...);
+
+#endif
 
 #endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ISTORE_incl_
+#define ISTORE_incl_
 
 #include <mutex>
 #include <unordered_map>
@@ -40,3 +41,5 @@ class InMemoryStore: public IStore {
     virtual Blob get(Hash h) const;
     virtual void save(const Blob& b);
 };
+
+#endif

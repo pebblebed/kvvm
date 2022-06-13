@@ -1,5 +1,5 @@
-#pragma once
-
+#ifndef BLOB_incl_
+#define BLOB_incl_
 #include <atomic>
 #include <cstdlib>
 #include <cstdint>
@@ -31,3 +31,4 @@ struct Blob {
     std::string string() const;
 };
 
+#endif
