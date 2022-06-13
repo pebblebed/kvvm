@@ -30,6 +30,7 @@ Table Table::addCol(string name, Cell defaultVal) {
 
 DataSet::RowBanks Table::rows() const {
     RowBanks ret;
+    // XXX
     return ret;
 }
 

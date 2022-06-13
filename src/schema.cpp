@@ -30,7 +30,7 @@ Schema Schema::deserialize(const Blob& b) {
 }
 
 Schema
-Schema::slice(std::vector<ColumnName> names) const {
+Schema::slice(const SliceDesc& names) const {
     std::vector<ColumnDesc> retcols;
     std::unordered_set<ColumnName> dedupedNames;
     for (const auto& n: names) {

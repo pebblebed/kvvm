@@ -17,6 +17,7 @@ enum ColumnType {
 
 typedef std::string ColumnName;
 typedef std::pair<ColumnName, ColumnType> ColumnDesc;
+typedef std::vector<ColumnName> SliceDesc;
 
 // A Schema is a leaf, with its own full-custom treatment of 
 class Schema : public BlobNode {
@@ -36,7 +37,7 @@ class Schema : public BlobNode {
         return toBlob().hash;
     }
 
-    Schema slice(std::vector<ColumnName> names) const; 
+    Schema slice(const SliceDesc& slice) const; 
 };
 
 class RowBank : public BlobNode {

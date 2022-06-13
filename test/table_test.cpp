@@ -28,3 +28,16 @@ TEST(TableTest, testAddCols) {
       .addCol("birthday", Cell::f(123456789.0))
       .addCol("name", Cell::s(""));
 }
+
+TEST(TableTest, testAddRows) {
+    InMemoryStore store;
+    Schema schema{ {} };
+    schema.christen(store);
+    Table empty(store,
+                Schema {
+                { { std::string("name"), ColumnType::STRING },
+                { std::string("height"), ColumnType::INT } },
+                });
+    Row r { { Cell::s("Keith Adams"), Cell::i(69) } };
+    empty.addRow(r);
+}

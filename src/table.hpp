@@ -59,7 +59,7 @@ class Table : public DataSet {
     virtual RowBanks rows() const;
 
     Table addCol(std::string name, Cell defaultVal);
-    Table addRow(Row row);
+    Table addRow(const Row& row);
 };
 
 #endif
