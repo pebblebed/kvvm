@@ -30,7 +30,15 @@ Table Table::addCol(string name, Cell defaultVal) {
 
 Table Table::addRow(const Row& row) {
     Table newTab(store_, schema_);
-    assert(false); // not implemented
+    bool newBankNeeded = rows_.size() == 0;
+    if (!newBankNeeded) {
+      auto blob = store_.get(rows_[rows_.size() - 1].hash);
+      auto rb = RowBank::deserialize(blob);
+    }
+
+    if (rows_.size() == 0) {
+    }
+    auto &banks = rows_;
     return newTab;
 }
 

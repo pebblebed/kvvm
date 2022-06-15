@@ -38,6 +38,7 @@ class Schema : public BlobNode {
 };
 
 class RowBank : public BlobNode {
+  std::vector<Row> rows_;
   public:
 
   virtual Blob toBlob() const;

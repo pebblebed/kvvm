@@ -63,6 +63,7 @@ void decode(InBuffer& in, uint64_t& u64);
 void decode(InBuffer& in, int64_t& i64);
 void decode(InBuffer& in, double& d);
 void decode(InBuffer& in, bool& b);
+void decode(InBuffer& in, uint8_t& b);
 
 template<typename Inner>
 void decode_vector(std::vector<Inner>& vec, InBuffer& b) {

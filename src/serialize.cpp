@@ -112,6 +112,10 @@ void decode(InBuffer& b, bool& boo) {
     boo = bool(byte);
 }
 
+void decode(InBuffer& b, uint8_t& byte) {
+    byte = b.consume();
+}
+
 void decode(InBuffer& b, std::string& str) {
     size_t sz;
     decode(b, sz);

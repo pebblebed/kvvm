@@ -30,7 +30,7 @@ Cell Cell::i(int64_t i64) {
 }
 
 Cell Cell::decode(SerImpl::InBuffer& buf) {
-    size_t ict;
+    uint8_t ict;
     SerImpl::decode(buf, ict);
     auto ct = ColumnType(ict);
     switch(ct) {
@@ -61,7 +61,9 @@ Cell Cell::decode(SerImpl::InBuffer& buf) {
 }
 
 void Cell::encode(SerImpl::OutBuffer& buf) const {
-    SerImpl::encode((uint64_t)type, buf);
+    assert(int8_t(type) >= 0);
+    assert(int8_t(type) <= INT8_MAX);
+    SerImpl::encode((uint8_t)type, buf);
     switch (type) {
     case NUL: return;
     case STRING:

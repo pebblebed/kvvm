@@ -19,13 +19,14 @@ struct DataSet : public BlobInternalNode {
 
 class Table : public DataSet {
     IStore &store_;
-    RowBanks rows_;
     Hashable<Schema> schema_;
+    const RowBanks rows_;
 
   public:
-    Table(IStore &store, Hashable<Schema> schema)
+    Table(IStore &store, Hashable<Schema> schema, RowBanks rb = {})
     : store_(store)
-    , schema_(schema) { }
+    , schema_(schema)
+    , rows_(rb) { }
     ~Table() { }
 
     virtual HashedStruct flatten() const;
