@@ -26,6 +26,7 @@ add_library(
     src/table.cpp
     src/query.cpp
     src/schema.cpp
+    src/rowbank.cpp
     src/cell.cpp
     src/hash.cpp
     src/blob.cpp

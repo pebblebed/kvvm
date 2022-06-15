@@ -37,7 +37,7 @@ TEST(Serialize, serlz_cell_s) {
     OutBuffer out(data);
     auto s = Cell::s("foo");
     s.encode(out);
-    EXPECT_EQ(data.size(), 4);
+    EXPECT_EQ(data.size(), 6);
 
     InBuffer in(data);
     auto c = Cell::decode(in);

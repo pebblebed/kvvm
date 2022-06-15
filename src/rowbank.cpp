@@ -25,5 +25,6 @@ RowBank::toBlob() const {
 RowBank
 RowBank::deserialize(const Blob& b) {
     RowBank rb;
+
     return rb;
 }
