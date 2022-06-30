@@ -28,6 +28,7 @@ add_library(
     src/schema.cpp
     src/rowbank.cpp
     src/cell.cpp
+    src/rowbank.cpp
     src/hash.cpp
     src/blob.cpp
     src/istore.cpp

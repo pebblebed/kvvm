@@ -46,4 +46,27 @@ struct Row {
     std::vector<Cell> cells;
 };
 
+namespace SerImpl {
+static inline void
+encode(const Cell& c, OutBuffer& buf) {
+    c.encode(buf);
+}
+
+static inline void
+decode(InBuffer& buf, Cell& c) {
+    c.decode(buf);
+}
+
+static inline void
+encode(const Row& r, SerImpl::OutBuffer& buf) {
+    encode_vector(r.cells, buf);
+}
+
+static inline void
+decode(SerImpl::InBuffer& buf, Row& r) {
+    decode_vector(buf, r.cells);
+}
+
+}
+
 #endif

@@ -66,13 +66,14 @@ void decode(InBuffer& in, bool& b);
 void decode(InBuffer& in, uint8_t& b);
 
 template<typename Inner>
-void decode_vector(std::vector<Inner>& vec, InBuffer& b) {
+void decode_vector(InBuffer& b, std::vector<Inner>& vec) {
     size_t sz;
     decode(b, sz);
     vec.reserve(sz);
     for (size_t i = 0; i < sz; i++) {
         Inner inner;
-        vec.emplace_back(decode(b, inner));
+        decode(b, inner);
+        vec.push_back(inner);
     }
 }
 
