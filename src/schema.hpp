@@ -37,12 +37,4 @@ class Schema : public BlobNode {
     std::vector<TypeMismatch> check(const std::vector<Cell>& cells) const;
 };
 
-class RowBank : public BlobNode {
-  std::vector<Row> rows_;
-  public:
-
-  virtual Blob toBlob() const;
-  static RowBank deserialize(const Blob& b);
-};
-
 #endif

@@ -41,7 +41,9 @@ struct Cell {
 
     bool operator==(const Cell& rhs) const;
 };
+
 struct Row {
     std::vector<Cell> cells;
 };
+
 #endif

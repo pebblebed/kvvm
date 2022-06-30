@@ -43,8 +43,6 @@ Table Table::addRow(const Row& row) {
 }
 
 DataSet::RowBanks Table::rows() const {
-    RowBanks ret;
-    // XXX
-    return ret;
+    return rows_;
 }
 

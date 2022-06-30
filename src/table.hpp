@@ -9,6 +9,15 @@
 #include "schema.hpp"
 #include "cell.hpp"
 
+class RowBank : public BlobNode {
+    Schema schema_;
+    std::vector<Row> rows_;
+
+  public:
+
+  virtual Blob toBlob() const;
+  static RowBank deserialize(const Blob& b);
+};
 
 struct DataSet : public BlobInternalNode {
     typedef std::vector<Hashable<RowBank>> RowBanks;
