@@ -28,37 +28,47 @@ Table Table::addCol(string name, Cell defaultVal) {
   return Table(store_, Hashable<Schema>(newSchema));
 }
 
+static const int RowBankMax = 512;
+
+bool
+isFull(const RowBank& rb) {
+    return rb.size() == RowBankMax;
+}
+
 Table Table::addRow(const Row& row) {
-    Table newTab(store_, schema_);
-    newTab.rows_ = rows_;
     RowBank* maybeNewRB = nullptr;
     if (rows_.size() == 0) {
+        dbg(DebugClass::table, 1, "allocating first RB!\n");
         maybeNewRB = new RowBank();
     } else {
-        auto tailHash = newTab.rows_[newTab.rows_.size() - 1].hash;
+        auto tailHash = rows_[rows_.size() - 1].hash;
         auto tailBlob = store_.get(tailHash);
         auto tailRB = RowBank::deserialize(tailBlob);
-        if (tailRB.isFull()) {
+        if (isFull(tailRB)) {
+            dbg(DebugClass::table, 1, "allocating %d'th RB!\n",
+                int(rows_.size()));
             maybeNewRB = new RowBank();
         }
     }
     if (maybeNewRB) {
-        newTab.rows_.push_back(*maybeNewRB);
+        dbg(DebugClass::table, 1, "new RB!");
+        auto appendedRows = rows_;
+        appendedRows.push_back(*maybeNewRB);
+        Table newTab(store_, schema_, appendedRows);
         // Just get the happy-path body inlined recursively
         auto retval = newTab.addRow(row);
         delete maybeNewRB;
         return retval;
     }
+    assert(!maybeNewRB);
+    Table newTab(store_, schema_, rows_);
     // OK! Preliminaries out of the way: we have space allocated for the new row.
     assert(newTab.rows_.size() >= 1);
     auto &tailHash = newTab.rows_[newTab.rows_.size() - 1].hash;
     auto tailBlob = store_.get(tailHash);
     auto tailRB = RowBank::deserialize(tailBlob);
-    assert(!tailRB.isFull());
+    assert(!isFull(tailRB));
     tailRB.append(row);
-    if (maybeNewRB) {
-        newTab.rows_.push_back(maybeNewRB->hash());
-    }
     return newTab;
 }
 
