@@ -11,7 +11,6 @@
 #include <bit>
 
 #include "serialize.hpp"
-#include "hps.h"
 #include "dbg.hpp"
 
 // This space left blank
@@ -127,8 +126,7 @@ void decode(InBuffer& b, std::string& str) {
 }
 
 void OutBuffer::produce(uint8_t b) {
-        buf.resize(buf.size() + 1);
-        buf[buf.size() - 1] = b;
+        buf.push_back(b);
 }
 
 
