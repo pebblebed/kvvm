@@ -52,6 +52,7 @@ add_executable(
   test/hash_test.cpp
   test/blob_test.cpp
   test/istore_test.cpp
+  test/rowbank_test.cpp
 )
 
 target_link_libraries(

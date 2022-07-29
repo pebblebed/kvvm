@@ -32,3 +32,12 @@ RowBank::append(const Row& r) {
     rows_.push_back(r);
 }
 
+RowBank
+RowBank::apply(std::function<Row(Row)> lambda) const {
+    RowBank retval;
+    for (auto r: rows_) {
+        retval.append(lambda(r));
+    }
+    return retval;
+}
+

@@ -1,6 +1,8 @@
 #ifndef ROWBANK_incl_
 #define ROWBANK_incl_
 
+#include <functional>
+
 #include "serialize.hpp"
 #include "cell.hpp"
 
@@ -14,6 +16,8 @@ class RowBank : public BlobNode {
     static RowBank deserialize(const Blob& b);
 
     void append(const Row& r);
+
+    RowBank apply(std::function<Row(Row)> lambda) const;
 };
 
 #endif
