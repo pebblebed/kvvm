@@ -32,3 +32,16 @@ TEST(RowBankTest, contentAddr) {
         EXPECT_EQ(rb1.hash(), rb2.hash());
     }
 }
+
+TEST(RowBankTest, apply) {
+    RowBank rb1;
+    for (auto i = 0; i < 420; i++) {
+        rb1.append(Row { { Cell::s("a string"), Cell::i(i) } });
+    }
+
+    std::function<Row(Row)> sliceLeft = [](Row r) {
+        EXPECT_EQ(r.cells.size(), 2);
+        return Row { { r.cells[0] } };
+    };
+    RowBank rb2 = rb1.apply(sliceLeft);
+}
