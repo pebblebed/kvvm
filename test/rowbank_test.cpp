@@ -44,4 +44,26 @@ TEST(RowBankTest, apply) {
         return Row { { r.cells[0] } };
     };
     RowBank rb2 = rb1.apply(sliceLeft);
+
+    // Now check!
+    std::function<Row(Row)> verify = [](Row r) {
+        EXPECT_EQ(r.cells.size(), 1);
+        EXPECT_EQ(r.cells[0], Cell::s("a string"));
+        return Row { };
+    };
+    auto rb3 = rb2.apply(verify);
+
+    // Compute some stuff
+    std::function<Row(Row)> spliceSquares = [](Row r) {
+        EXPECT_EQ(r.cells.size(), 2);
+        EXPECT_EQ(r.cells[1].type, ColumnType::INT);
+        auto sq = r.cells[1].u.Int;
+        sq = sq * sq;
+        return Row { {
+            r.cells[0], r.cells[1], Cell::i(sq),
+        } };
+    };
+
+    auto rb4 = rb1.apply(spliceSquares);
+    EXPECT_EQ(rb4.at(100).cells[2], Cell::i(100 * 100));
 }

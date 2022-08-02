@@ -8,6 +8,12 @@ RowBank::size() const {
     return rows_.size();
 }
 
+const Row&
+RowBank::at(int i) const {
+    assert(i <= size());
+    return rows_[i];
+}
+
 Blob
 RowBank::toBlob() const {
     using namespace SerImpl;

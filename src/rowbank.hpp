@@ -12,6 +12,8 @@ class RowBank : public BlobNode {
     public:
 
     size_t size() const;
+    const Row& at(int i) const;
+
     virtual Blob toBlob() const;
     static RowBank deserialize(const Blob& b);
 
