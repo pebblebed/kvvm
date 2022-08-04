@@ -27,6 +27,7 @@ class Schema : public BlobNode {
     }
 
     Schema slice(const SliceDesc& slice) const; 
+    std::vector<int> sliceToColNums(const SliceDesc& slice) const;
 
     struct TypeMismatch {
         std::string name;

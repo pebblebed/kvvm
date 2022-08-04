@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-// #include "hps/src/hps.h"
 #include "hash.hpp"
 #include "istore.hpp"
 #include "blob.hpp"
@@ -44,6 +43,7 @@ void encode(uint8_t u8, OutBuffer& b);
 void encode(double d, OutBuffer& b);
 void encode(float f, OutBuffer& b);
 void encode(bool boo, OutBuffer& b);
+void encode(Hash h, OutBuffer& b);
 
 template<typename Inner>
 void encode_vector(const std::vector<Inner>& vec, OutBuffer& b) {
@@ -64,6 +64,7 @@ void decode(InBuffer& in, int64_t& i64);
 void decode(InBuffer& in, double& d);
 void decode(InBuffer& in, bool& b);
 void decode(InBuffer& in, uint8_t& b);
+void decode(InBuffer& in, Hash& h);
 
 template<typename Inner>
 void decode_vector(InBuffer& b, std::vector<Inner>& vec) {
@@ -75,6 +76,11 @@ void decode_vector(InBuffer& b, std::vector<Inner>& vec) {
         decode(b, inner);
         vec.push_back(inner);
     }
+}
+
+template<typename Inner>
+void decode(InBuffer& b, std::vector<Inner>& vec) {
+    decode_vector(b, vec);
 }
 
 }

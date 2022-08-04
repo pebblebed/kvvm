@@ -8,12 +8,13 @@ using namespace std;
 
 Schema
 Table::schema() const {
-    return Schema::deserialize(store_.get(schema_.hash));
+    return schema_;
 }
 
 HashedStruct Table::flatten() const {
   HashedStruct hs;
   hs.magic = MAGIC__TABLE;
+  hs.hashen.push_back(schema_.hash());
   for (auto r: rows_) {
     hs.hashen.push_back(r.hash);
   }
@@ -21,11 +22,9 @@ HashedStruct Table::flatten() const {
 }
 
 Table Table::addCol(string name, Cell defaultVal) {
-  auto prevCols = schema().getCols();
+  auto prevCols = schema_.getCols();
   prevCols.push_back(make_pair(name, defaultVal.type));
-  auto newSchema = Schema(prevCols);
-  newSchema.christen(store_);
-  return Table(store_, Hashable<Schema>(newSchema));
+  return Table(store_, Schema(prevCols));
 }
 
 static const int RowBankMax = 512;
@@ -61,15 +60,19 @@ Table Table::addRow(const Row& row) {
         return retval;
     }
     assert(!maybeNewRB);
-    Table newTab(store_, schema_, rows_);
+    auto newRows = rows_;
     // OK! Preliminaries out of the way: we have space allocated for the new row.
-    assert(newTab.rows_.size() >= 1);
-    auto &tailHash = newTab.rows_[newTab.rows_.size() - 1].hash;
+    assert(newRows.size() >= 1);
+    Hash &tailHash = newRows[newRows.size() - 1].hash;
     auto tailBlob = store_.get(tailHash);
     auto tailRB = RowBank::deserialize(tailBlob);
     assert(!isFull(tailRB));
     tailRB.append(row);
-    return newTab;
+    // This is where new rows "come from", at least from the storage
+    // system's perspective.
+    tailRB.christen(store_);
+    tailHash = tailRB.hash();
+    return Table(store_, schema_, newRows);
 }
 
 DataSet::RowBanks Table::rows() const {

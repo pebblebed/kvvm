@@ -7,7 +7,6 @@ set(CMAKE_BUILD_TYPE Debug)
 
 find_package(OpenSSL REQUIRED)
 
-include_directories(AFTER src/hps/src)
 if(UNIX AND APPLE)
     include_directories(AFTER /opt/homebrew/opt/openssl/include)
 endif()
@@ -66,6 +65,7 @@ add_executable(
   test_table
   test/table_test.cpp
   test/schema_test.cpp
+  test/query_test.cpp
 )
 
 target_link_libraries(

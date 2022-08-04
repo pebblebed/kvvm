@@ -67,3 +67,7 @@ TEST(RowBankTest, apply) {
     auto rb4 = rb1.apply(spliceSquares);
     EXPECT_EQ(rb4.at(100).cells[2], Cell::i(100 * 100));
 }
+
+TEST(RowBankTest, serde) {
+}
+

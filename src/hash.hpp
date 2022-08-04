@@ -15,11 +15,12 @@ static const size_t HASH_BYTES = HASH_BITS / BITS_PER_BYTE;
 static const size_t HASH_QUADS = HASH_BYTES / 8;
 
 typedef std::array<uint8_t, HASH_BYTES> HashBytes;
+typedef std::array<uint64_t, HASH_QUADS> HashQuads;
 
 struct Hash {
     union {
         HashBytes bytes;
-        std::array<uint64_t, HASH_QUADS> quads;
+        HashQuads quads;
     };
 
     Hash() {
@@ -45,16 +46,6 @@ struct Hash {
             out ^= (out * 11) + q;
         }
         return out;
-    }
-
-    template<typename B>
-    void serialize(B& b) const {
-        b << quads;
-    }
-
-    template<typename B>
-    void parse(B& b) {
-        b >> quads;
     }
 
     template<typename OStream>

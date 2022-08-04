@@ -10,13 +10,21 @@ struct Query : public DataSet {
 
 struct Slice : public Query {
   protected:
+    IStore &store_;
     const Schema schema_;
+    const Table &parent_;
     const SliceDesc cols_;
 
   public:
-    Slice(const Table& parent, const SliceDesc& cols)
-    : schema_(parent.schema().slice(cols))
+    Slice(IStore &store, const Table &parent, const SliceDesc &cols)
+    : store_(store)
+    , schema_(parent.schema().slice(cols))
+    , parent_(parent)
     {}
+
+    virtual HashedStruct flatten() const;
+    virtual Schema schema() const;
+    virtual RowBanks rows() const;
 };
 
 struct Filter: public Query {

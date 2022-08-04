@@ -24,6 +24,11 @@ int clz(uint64_t x) {
 void encode(uint8_t u8, OutBuffer& b) { b.produce(u8); }
 void encode(bool boo, OutBuffer& b)   { b.produce(boo); }
 
+void encode(Hash h, OutBuffer& b) {
+    for (auto i = 0; i < HASH_QUADS; i++) {
+        encode(h.quads[i], b);
+    }
+}
 
 void encode(uint64_t u64, OutBuffer& b) {
     if (u64 == 0) { b.produce(0); return; }
@@ -122,6 +127,12 @@ void decode(InBuffer& b, std::string& str) {
     str.reserve(sz);
     for (size_t ii = 0; ii < sz; ii++) {
         str.push_back(char(b.consume()));
+    }
+}
+
+void decode(InBuffer& in, Hash& h) {
+    for (auto i = 0; i < HASH_QUADS; i++) {
+        decode(in, h.quads[i]);
     }
 }
 

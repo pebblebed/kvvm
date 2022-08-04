@@ -19,17 +19,16 @@ RowBank::toBlob() const {
     using namespace SerImpl;
     string s;
     OutBuffer out(s);
-    encode_vector(rows_, out);
+    encode(rows_, out);
     return Blob(s);
 }
 
 RowBank
 RowBank::deserialize(const Blob& b) {
-    SerImpl::InBuffer inbuf(b.string());
-    size_t max;
-    decode(inbuf, max);
+    using namespace SerImpl;
+    InBuffer inbuf(b.string());
     RowBank retval;
-    decode_vector(inbuf, retval.rows_);
+    decode(inbuf, retval.rows_);
     return retval;
 }
 
