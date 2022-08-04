@@ -8,41 +8,30 @@
 using namespace SerImpl;
 using namespace std;
 
-TEST(Serialize, serlz_int_0) {
+template<typename TInner>
+void
+SerCase(const TInner val) {
     string data;
     OutBuffer out(data);
-    encode(uint64_t(0), out);
-    EXPECT_EQ(data.size(), 1);
-    EXPECT_EQ(data[0], '\0');
+    encode(val, out);
 
     InBuffer in(data);
-    uint64_t deser;
+    TInner deser;
     decode(in, deser);
-    EXPECT_EQ(deser, 0);
+    EXPECT_EQ(deser, val);
+}
+
+TEST(Serialize, serlz_int_0) {
+    SerCase(uint64_t(0));
 }
 
 TEST(Serialize, serlz_int_larger) {
-    string data;
-    OutBuffer out(data);
-    encode(uint64_t(1), out);
-    EXPECT_EQ(data.size(), 2);
-
-    InBuffer in(data);
-    uint64_t deser;
-    decode(in, deser);
-    EXPECT_EQ(deser, 1);
+    SerCase(uint64_t(1));
 }
 
 TEST(Serialize, serlz_dense_ints) {
-    string data;
-    OutBuffer out(data);
     uint64_t prod = uint64_t(rand()) * uint64_t(rand());
-    encode(prod, out);
-
-    InBuffer in(data);
-    uint64_t deser;
-    decode(in, deser);
-    EXPECT_EQ(deser, prod);
+    SerCase(prod);
 }
 
 TEST(Serialize, serlz_cell_s) {

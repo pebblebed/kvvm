@@ -106,7 +106,8 @@ void decode(InBuffer& b, uint64_t& u64) {
     dbg(ser, 10, "%d byte int ...\n", int(nBytes));
     u64 = 0;
     for (auto ii = 0; ii < nBytes; ii++) {
-        u64 |= (b.consume() << 8 * ii);
+        auto b64 = uint64_t(b.consume());
+        u64 |= b64 << (8 * ii);
         dbg(ser, 10, "%d'th byte -> %llx\n", ii, u64);
     }
 }
