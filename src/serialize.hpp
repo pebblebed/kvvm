@@ -46,18 +46,14 @@ void encode(bool boo, OutBuffer& b);
 void encode(Hash h, OutBuffer& b);
 
 template<typename Inner>
-void encode_vector(const std::vector<Inner>& vec, OutBuffer& b) {
+void encode(const std::vector<Inner>& vec, OutBuffer& b) {
     encode(vec.size(), b);
     for (const auto& inner: vec) {
         encode(inner, b);
     }
 }
 
-template<typename Inner>
-void encode(const std::vector<Inner>& val, OutBuffer& b) {
-    encode_vector<Inner>(val, b);
-}
-
+/* --- */
 void decode(InBuffer& in, std::string& str);
 void decode(InBuffer& in, uint64_t& u64);
 void decode(InBuffer& in, int64_t& i64);
@@ -67,7 +63,7 @@ void decode(InBuffer& in, uint8_t& b);
 void decode(InBuffer& in, Hash& h);
 
 template<typename Inner>
-void decode_vector(InBuffer& b, std::vector<Inner>& vec) {
+void decode(InBuffer& b, std::vector<Inner>& vec) {
     size_t sz;
     decode(b, sz);
     vec.reserve(sz);
@@ -76,11 +72,6 @@ void decode_vector(InBuffer& b, std::vector<Inner>& vec) {
         decode(b, inner);
         vec.push_back(inner);
     }
-}
-
-template<typename Inner>
-void decode(InBuffer& b, std::vector<Inner>& vec) {
-    decode_vector(b, vec);
 }
 
 }

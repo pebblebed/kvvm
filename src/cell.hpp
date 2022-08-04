@@ -59,12 +59,12 @@ decode(InBuffer& buf, Cell& c) {
 
 static inline void
 encode(const Row& r, SerImpl::OutBuffer& buf) {
-    encode_vector(r.cells, buf);
+    encode(r.cells, buf);
 }
 
 static inline void
 decode(SerImpl::InBuffer& buf, Row& r) {
-    decode_vector(buf, r.cells);
+    decode(buf, r.cells);
 }
 
 }

@@ -15,7 +15,7 @@ TEST(Serialize, serlz_int_0) {
     EXPECT_EQ(data.size(), 1);
     EXPECT_EQ(data[0], '\0');
 
-    SerImpl::InBuffer in(data);
+    InBuffer in(data);
     uint64_t deser;
     decode(in, deser);
     EXPECT_EQ(deser, 0);
@@ -31,6 +31,18 @@ TEST(Serialize, serlz_int_larger) {
     uint64_t deser;
     decode(in, deser);
     EXPECT_EQ(deser, 1);
+}
+
+TEST(Serialize, serlz_dense_ints) {
+    string data;
+    OutBuffer out(data);
+    uint64_t prod = uint64_t(rand()) * uint64_t(rand());
+    encode(prod, out);
+
+    InBuffer in(data);
+    uint64_t deser;
+    decode(in, deser);
+    EXPECT_EQ(deser, prod);
 }
 
 TEST(Serialize, serlz_cell_s) {
@@ -76,4 +88,31 @@ TEST(Serialize, vector) {
     for (auto i = 0; i < decvec.size(); i++) {
         EXPECT_EQ(decvec[i], veccio[i]);
     }
+}
+
+TEST(Serialize, vecvec) {
+    const int X = 2;
+    const int Y = 3;
+
+    std::vector<std::vector<uint64_t>> vecvec;
+    for (auto i = 0; i < X; i++) {
+        std::vector<uint64_t> inner;
+        for (auto j = 0; j < Y; j++) {
+            inner.push_back(uint64_t(rand()) * uint64_t(rand()));
+        }
+        vecvec.push_back(inner);
+    }
+
+    string outStr;
+    OutBuffer outb(outStr);
+    encode(vecvec, outb);
+
+    InBuffer inb(outStr);
+    std::vector<std::vector<uint64_t>> decvec;
+    decode(inb, decvec);
+
+    EXPECT_EQ(decvec.size(), X);
+    EXPECT_EQ(decvec[0].size(), Y);
+
+    EXPECT_EQ(vecvec, decvec);
 }

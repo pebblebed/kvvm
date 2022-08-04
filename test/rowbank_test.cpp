@@ -69,5 +69,15 @@ TEST(RowBankTest, apply) {
 }
 
 TEST(RowBankTest, serde) {
+    InMemoryStore store;
+    using namespace SerImpl;
+
+    RowBank rb1;
+    for (auto i = 0; i < 2; i++) {
+        rb1.append(Row { { Cell::s("fooble"), Cell::i(i * 3) } } );
+    }
+    auto blob = rb1.toBlob();
+
+    RowBank rb2 = RowBank::deserialize(blob);
 }
 

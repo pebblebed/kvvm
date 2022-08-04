@@ -40,12 +40,15 @@ void encode(uint64_t u64, OutBuffer& b) {
     assert(nonZeroBytes > 0);
     assert(nonZeroBytes < UINT8_MAX);
     b.produce(nonZeroBytes);
+    dbg(ser, 10, "encode(u64): nonZeroBytes %d\n", nonZeroBytes);
     for (auto ii = 0; ii < nonZeroBytes; ii++) {
-        b.produce( (u64 >> 8 * ii) & 0xff);
-	}
+        uint8_t byte = (u64 >> (8 * ii)) & 0xff;
+        dbg(ser, 10, "encode(u64): byte %d -> %lx\n", ii, byte);
+        b.produce(byte);
+    }
 }
 
-// Argh, sign. Just encode as unsigned, so that negative numbers are annoyingly
+// Argh, sign. Just encode as unsigned 64, so that negative numbers are annoyingly
 // long to represent.
 void encode(int64_t i64, OutBuffer& b) {
     encode(uint64_t(i64), b);
@@ -100,9 +103,11 @@ void decode(InBuffer& b, double& d64) {
 void decode(InBuffer& b, uint64_t& u64) {
     auto nBytes = b.consume();
     assert(nBytes >= 0 && nBytes <= 8);
+    dbg(ser, 10, "%d byte int ...\n", int(nBytes));
     u64 = 0;
     for (auto ii = 0; ii < nBytes; ii++) {
         u64 |= (b.consume() << 8 * ii);
+        dbg(ser, 10, "%d'th byte -> %llx\n", ii, u64);
     }
 }
 
