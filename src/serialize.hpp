@@ -45,8 +45,8 @@ void encode(float f, OutBuffer& b);
 void encode(bool boo, OutBuffer& b);
 void encode(Hash h, OutBuffer& b);
 
-template<typename Inner>
-void encode(const std::vector<Inner>& vec, OutBuffer& b) {
+template<typename VInner>
+void encode(const VInner& vec, OutBuffer& b) {
     encode(vec.size(), b);
     for (const auto& inner: vec) {
         encode(inner, b);
@@ -62,13 +62,13 @@ void decode(InBuffer& in, bool& b);
 void decode(InBuffer& in, uint8_t& b);
 void decode(InBuffer& in, Hash& h);
 
-template<typename Inner>
-void decode(InBuffer& b, std::vector<Inner>& vec) {
+template<typename VInner>
+void decode(InBuffer& b, VInner& vec) {
     size_t sz;
     decode(b, sz);
     vec.reserve(sz);
     for (size_t i = 0; i < sz; i++) {
-        Inner inner;
+        typename VInner::value_type inner;
         decode(b, inner);
         vec.push_back(inner);
     }
