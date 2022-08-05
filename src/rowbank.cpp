@@ -26,7 +26,8 @@ RowBank::toBlob() const {
 RowBank
 RowBank::deserialize(const Blob& b) {
     using namespace SerImpl;
-    InBuffer inbuf(b.string());
+    std::string s = b.string();
+    InBuffer inbuf(s);
     RowBank retval;
     decode(inbuf, retval.rows_);
     return retval;

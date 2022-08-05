@@ -18,15 +18,15 @@ char nybbleToC(uint8_t nybble) {
 
 
 string Hash::hex() const {
-	string retval;
+    string retval;
     const int BITS_PER_HEX_CHAR = 4;
-	retval.resize(HASH_BITS / BITS_PER_HEX_CHAR);
-	for (auto ii = 0; ii < HASH_BYTES; ii++) {
+    retval.resize(HASH_BITS / BITS_PER_HEX_CHAR);
+    for (auto ii = 0; ii < HASH_BYTES; ii++) {
         auto c = bytes[ii];
         retval[ii * 2] = nybbleToC(c >> 4);
         retval[ii * 2 + 1] = nybbleToC(c & 0xf);
     }
-	return retval;
+    return retval;
 }
 
 
