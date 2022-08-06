@@ -39,6 +39,12 @@ InMemoryCache::record(std::string name, Hash hash) {
         return;
     }
 
+    if (cache_.size() >= maxItems_) {
+        stats_.evictions++;
+        // XXX: finish me.
+        auto it = cache_.begin();
+        cache_.erase(it);
+    }
     stats_.inserts++;
     cache_[name] = hash;
 }

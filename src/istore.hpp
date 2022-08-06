@@ -19,7 +19,8 @@ struct IStore {
 
 struct ICache {
     struct Stats {
-        int inserts, hits, misses;
+        int inserts, evictions;
+        int hits, misses;
     };
 
     virtual void record(std::string name, Hash hash) = 0;
