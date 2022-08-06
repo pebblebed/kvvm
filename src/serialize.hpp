@@ -139,7 +139,7 @@ struct BlobNode {
         return toBlob().hash;
     }
 
-    void christen(IStore& istore) const {
+    void christen(IData& istore) const {
         istore.save(toBlob());
     }
 };
@@ -171,7 +171,7 @@ struct Hashable {
         : hash(u.hash())
     { }
 
-    Underlying materialize(IStore& store) {
+    Underlying materialize(IData& store) {
         return Underlying::deserialize(store.get(hash));
     }
 };

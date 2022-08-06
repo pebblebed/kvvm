@@ -4,26 +4,25 @@
 #include "../src/dbg.hpp"
 
 TEST(SchemaTest, serde) {
-  InMemoryStore store;
-  std::vector<std::pair<std::string, ColumnType>> cols {
-      std::make_pair(std::string("name"), ColumnType::STRING),
-  };
+    auto data = getTestData();
+    std::vector<std::pair<std::string, ColumnType>> cols {
+        std::make_pair(std::string("name"), ColumnType::STRING),
+    };
 
-  Schema schema{ cols };
-  schema.christen(store);
+    Schema schema{ cols };
+    schema.christen(*data);
 
-  Hashable<Schema> hash(schema.toBlob().hash);
-  auto remat = hash.materialize(store);
-  dbg(ser, 0, "blobinz: %s\n", schema.toBlob().hash.hex().c_str());
+    Hashable<Schema> hash(schema.toBlob().hash);
+    auto remat = hash.materialize(*data);
+    dbg(ser, 0, "blobinz: %s\n", schema.toBlob().hash.hex().c_str());
 
-  const auto rematCols = remat.getCols();
-  const auto origCols = schema.getCols();
-  EXPECT_EQ(rematCols, origCols);
-  EXPECT_EQ(rematCols.size(), 1);
+    const auto rematCols = remat.getCols();
+    const auto origCols = schema.getCols();
+    EXPECT_EQ(rematCols, origCols);
+    EXPECT_EQ(rematCols.size(), 1);
 }
 
 TEST(SchemaTest, slice) {
-    InMemoryStore store;
     auto cols = {
         std::make_pair(std::string("name"), ColumnType::STRING),
         std::make_pair(std::string("postCode"), ColumnType::INT),

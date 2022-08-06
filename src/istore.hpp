@@ -24,56 +24,48 @@ struct ICache {
     };
 
     virtual void record(std::string name, Hash hash) = 0;
-    virtual bool lookup(std::string name, Hash& out) = 0;
+    virtual bool lookup(std::string name, Hash& out) const = 0;
 
     virtual Stats getStats() const = 0;
-
 };
 
-class InMemoryRoot: public IRoot {
-protected:
-    mutable std::mutex mutex;
-    Hash current;
+struct IData {
+    virtual IRoot& root() = 0;
+    virtual IStore& store() = 0;
+    virtual ICache& cache() = 0;
 
-public:
+    virtual const IRoot& root() const = 0;
+    virtual const IStore& store() const = 0;
+    virtual const ICache& cache() const = 0;
+
+    // Root methods
     Hash getCurrentHash() const {
-        return current;
+        return root().getCurrentHash();
+    }
+    bool cas(Hash oldval, Hash newval) {
+        return root().cas(oldval, newval);
     }
 
-    virtual bool cas(Hash oldVal, Hash newVal);
+    // Store methods
+    void save(Blob b) { store().save(b); }
+    Blob get(Hash h) const {
+        return store().get(h);
+    }
+
+    // Cache methods
+    void record(std::string name, Hash hash) {
+        cache().record(name, hash);
+    }
+
+    bool lookup(std::string name, Hash& hash) const {
+        return cache().lookup(name, hash);
+    }
+
+    ICache::Stats getStats() const {
+        return cache().getStats();
+    }
 };
 
-class InMemoryStore: public IStore {
-    mutable std::mutex mutex;
-    std::unordered_map<Hash, Blob, hash_hash> blobs;
-
-    public:
-    virtual Blob get(Hash h) const;
-    virtual void save(const Blob& b);
-};
-
-// The Cache is a fast-forward memoization store that remembers shortcuts
-// to blobs. Since it's intended only for referentially transparent use,
-// it does not support overwrites or deletes.
-class InMemoryCache : public ICache {
-    std::unordered_map<std::string, Hash> cache_;
-    int maxItems_;
-    Stats stats_;
-
-    public:
-    InMemoryCache(int maxItems = 32)
-    : maxItems_(maxItems)
-    , stats_({})
-    { }
-
-    virtual void record(std::string name, Hash hash);
-    virtual bool lookup(std::string name, Hash& out);
-
-    virtual Stats getStats() const { return stats_; }
-
-    protected:
-    void replace();
-};
-
+extern IData* getTestData();
 
 #endif

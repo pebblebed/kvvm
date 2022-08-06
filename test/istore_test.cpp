@@ -2,47 +2,47 @@
 #include "../src/istore.hpp"
 
 TEST(IStoreTest, Root) {
-    InMemoryRoot root;
-    auto val = root.getCurrentHash();
+    auto d = getTestData();
+    auto val = d->getCurrentHash();
     uint8_t bytes[] = { 0xa, 0xbb, 0xcc };
     auto myHash = computeHash(bytes, 3);
-    auto success = root.cas(val, myHash);
+    auto success = d->cas(val, myHash);
     EXPECT_TRUE(success);
 
-    success = root.cas(val, myHash);
+    success = d->cas(val, myHash);
     EXPECT_FALSE(success);
-    auto newHash = root.getCurrentHash();
+    auto newHash = d->getCurrentHash();
     EXPECT_EQ(newHash, myHash);
 }
 
 TEST(IStoreTest, Store) {
     uint8_t bytes[] = { 0xa, 0xbb, 0xcc };
     Blob b(bytes, 3);
-    InMemoryStore store;
 
-    store.save(b);
-    auto b2 = store.get(b.hash);
+    auto d = getTestData();
+    d->save(b);
+    auto b2 = d->get(b.hash);
     EXPECT_EQ(b2.hash, b.hash);
     EXPECT_EQ(b2, b);
 }
 
 TEST(IStoreTest, Cache) {
     auto h = computeHash(nullptr, 0);
-    InMemoryCache c;
+    auto d = getTestData();
     std::string name("hiya");
 
-    EXPECT_EQ(c.getStats().misses, 0);
-    EXPECT_EQ(c.getStats().hits, 0);
+    EXPECT_EQ(d->getStats().misses, 0);
+    EXPECT_EQ(d->getStats().hits, 0);
 
     Hash hOut;
-    auto succ = c.lookup(name, hOut);
+    auto succ = d->lookup(name, hOut);
     EXPECT_FALSE(succ);
-    EXPECT_EQ(c.getStats().misses, 1);
+    EXPECT_EQ(d->getStats().misses, 1);
 
-    c.record(name, h);
-    succ = c.lookup(name, hOut);
+    d->record(name, h);
+    succ = d->lookup(name, hOut);
     EXPECT_TRUE(succ);
     EXPECT_EQ(hOut, h);
-    EXPECT_EQ(c.getStats().misses, 1);
-    EXPECT_EQ(c.getStats().hits, 1);
+    EXPECT_EQ(d->getStats().misses, 1);
+    EXPECT_EQ(d->getStats().hits, 1);
 }

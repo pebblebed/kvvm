@@ -18,12 +18,12 @@ struct DataSet : public BlobInternalNode {
 };
 
 class Table : public DataSet {
-    IStore &store_;
+    IData &store_;
     Schema schema_;
     const RowBanks rows_;
 
   public:
-    Table(IStore &store, Schema schema, RowBanks rb = {})
+    Table(IData &store, Schema schema, RowBanks rb = {})
     : store_(store)
     , schema_(schema)
     , rows_(rb) {

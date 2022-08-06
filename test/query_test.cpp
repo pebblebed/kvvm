@@ -9,8 +9,8 @@
 #include "../src/query.hpp"
 
 TEST(QueryTest, slice) {
-    InMemoryStore store;
-    Table empty { store, Schema{ {} } };
+    auto d = getTestData();
+    Table empty { *d, Schema{ {} } };
     auto newTab = empty
         .addCol("user", Cell::s("kma"))
         .addCol("name", Cell::s("Keith Adams"))

@@ -69,7 +69,6 @@ TEST(RowBankTest, apply) {
 }
 
 TEST(RowBankTest, serde) {
-    InMemoryStore store;
     using namespace SerImpl;
 
     RowBank rb1;

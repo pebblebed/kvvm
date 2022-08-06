@@ -10,13 +10,13 @@ struct Query : public DataSet {
 
 struct Slice : public Query {
   protected:
-    IStore &store_;
+    IData &store_;
     const Schema schema_;
     const Table &parent_;
     const SliceDesc cols_;
 
   public:
-    Slice(IStore &store, const Table &parent, const SliceDesc &cols)
+    Slice(IData &store, const Table &parent, const SliceDesc &cols)
     : store_(store)
     , schema_(parent.schema().slice(cols))
     , parent_(parent)

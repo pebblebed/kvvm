@@ -14,26 +14,26 @@ TEST(TableTest, cell) {
 }
 
 TEST(TableTest, testConstruction) {
-    InMemoryStore store;
-    Table t(store, Schema{ {} });
+    auto d = getTestData();
+    Table t(*d, Schema{ {} });
 }
 
 TEST(TableTest, testAddCols) {
-  InMemoryStore store;
-  Schema schema{ {} };
-  schema.christen(store);
-  Table empty(store, Schema{ {} });
+    auto d = getTestData();
+    Schema schema{ {} };
+    schema.christen(*d);
+    Table empty(*d, Schema{ {} });
 
-  auto newTable = empty
-      .addCol("birthday", Cell::f(123456789.0))
-      .addCol("name", Cell::s(""));
+    auto newTable = empty
+        .addCol("birthday", Cell::f(123456789.0))
+        .addCol("name", Cell::s(""));
 }
 
 TEST(TableTest, testAddRows) {
-    InMemoryStore store;
+    auto d = getTestData();
     Schema schema{ {} };
-    schema.christen(store);
-    Table empty(store,
+    schema.christen(*d);
+    Table empty(*d,
                 Schema {
                 { { std::string("name"), ColumnType::STRING },
                 { std::string("height"), ColumnType::INT } },
