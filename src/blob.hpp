@@ -29,6 +29,8 @@ struct Blob {
 
     std::string substr(int start, size_t len) const;
     std::string string() const;
+
+    bool operator==(const Blob& rhs) const;
 };
 
 #endif

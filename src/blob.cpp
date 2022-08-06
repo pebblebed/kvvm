@@ -40,3 +40,10 @@ std::string
 Blob::string() const {
         return substr(0, size);
 }
+
+bool
+Blob::operator==(const Blob& rhs) const {
+    return hash == rhs.hash &&
+        size == rhs.size &&
+        memcmp(bytes, rhs.bytes, size) == 0;
+}

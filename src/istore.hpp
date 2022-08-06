@@ -7,30 +7,39 @@
 #include "hash.hpp"
 #include "blob.hpp"
 
-class IStore {
+struct IRoot {
+    virtual Hash getCurrentHash() const = 0;
+    virtual bool cas(Hash oldval, Hash newval) = 0;
+};
+
+struct IStore {
+    virtual Blob get(Hash h) const = 0;
+    virtual void save(const Blob& b) = 0;
+};
+
+struct ICache {
+    struct Stats {
+        int inserts, hits, misses;
+    };
+
+    virtual void record(std::string name, Hash hash) = 0;
+    virtual bool lookup(std::string name, Hash& out) = 0;
+
+    virtual Stats getStats() const = 0;
+
+};
+
+class InMemoryRoot: public IRoot {
 protected:
+    mutable std::mutex mutex;
     Hash current;
 
 public:
-    Hash getCurrentHash() {
+    Hash getCurrentHash() const {
         return current;
     }
 
-    // Returns getCurrentHash()
-    virtual bool cas(Hash oldval, Hash newval) = 0;
-
-    virtual Blob get(Hash h) const = 0;
-    virtual void save(const Blob& b) = 0;
-
-    // The "cache" is a memoization shortcut. Unlike "saved"
-    // values, cached values might not hit on retrieval
-    virtual void cacheSet(Hash hint, Hash target) {
-        // just forget it by default
-    }
-
-    virtual std::pair<bool, Hash> cacheGet(Hash hint) {
-        return std::make_pair(false, Hash());
-    }
+    virtual bool cas(Hash oldVal, Hash newVal);
 };
 
 class InMemoryStore: public IStore {
@@ -38,18 +47,32 @@ class InMemoryStore: public IStore {
     std::unordered_map<Hash, Blob, hash_hash> blobs;
 
     public:
-    virtual bool cas(Hash oldval, Hash newval) {
-        const std::lock_guard<std::mutex> _(mutex);
-        auto curHash = current;
-        if (curHash == oldval) {
-            current = newval;
-            return true;
-        }
-        return false;
-    }
-
     virtual Blob get(Hash h) const;
     virtual void save(const Blob& b);
 };
+
+// The Cache is a fast-forward memoization store that remembers shortcuts
+// to blobs. Since it's intended only for referentially transparent use,
+// it does not support overwrites or deletes.
+class InMemoryCache : public ICache {
+    std::unordered_map<std::string, Hash> cache_;
+    int maxItems_;
+    Stats stats_;
+
+    public:
+    InMemoryCache(int maxItems = 32)
+    : maxItems_(maxItems)
+    , stats_({})
+    { }
+
+    virtual void record(std::string name, Hash hash);
+    virtual bool lookup(std::string name, Hash& out);
+
+    virtual Stats getStats() const { return stats_; }
+
+    protected:
+    void replace();
+};
+
 
 #endif
