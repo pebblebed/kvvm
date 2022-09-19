@@ -5,6 +5,24 @@ project(my_project)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE Debug)
 
+set(WAMR_ROOT_DIR wasm)
+set (WAMR_BUILD_PLATFORM "linux")
+set (WAMR_BUILD_TARGET X86_64)
+set (WAMR_BUILD_INTERP 1)
+set (WAMR_BUILD_AOT 0)
+set (WAMR_BUILD_JIT 1)
+set (WAMR_BUILD_LIBC_BUILTIN 1)
+set (WAMR_BUILD_LIBC_WASI 0)
+set (WAMR_BUILD_APP_FRAMEWORK 1)
+set (WAMR_BUILD_APP_LIST WAMR_APP_BUILD_BASE)
+set (WAMR_BUILD_MULTI_MODULE 1)
+set (WAMR_BUILD_MINI_LOADER 0)
+set (WARM_BUILD_SHARED_MEMORY 1)
+set (WAMR_BUILD_THREAD_MGR 1)
+
+include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
+add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+
 find_package(OpenSSL REQUIRED)
 
 if(UNIX AND APPLE)
@@ -32,6 +50,7 @@ add_library(
     src/blob.cpp
     src/istore.cpp
     src/serialize.cpp
+    src/udf.cpp
     src/dbg.cpp
 )
 
@@ -43,6 +62,7 @@ target_link_libraries(
   test_serialize
   gtest_main
   kvvm
+  vmlib
   OpenSSL::SSL
 )
 
