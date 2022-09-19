@@ -36,6 +36,11 @@ class Schema : public BlobNode {
     };
 
     std::vector<TypeMismatch> check(const std::vector<Cell>& cells) const;
+    Schema join(const Schema& other) const {
+        std::vector<ColumnDesc> newCols = schema;
+        newCols.insert(newCols.end(), other.schema.begin(), other.schema.end());
+        return Schema(newCols);
+    }
 };
 
 #endif

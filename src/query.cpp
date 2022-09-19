@@ -1,7 +1,7 @@
 #include "query.hpp"
 
 // Blank for now
-
+#ifdef FIRST_CLASS_SLICE
 HashedStruct
 Slice::flatten() const {
     HashedStruct hs;
@@ -32,7 +32,7 @@ Slice::rows() const {
 
     for (auto hprb: parent_.rows()) {
         // XXX: Cache and stuff!
-        auto prb = hprb.materialize(store_);
+        auto prb = hprb.materialize(parent_.store());
         auto newRb = prb.apply(slizzo);
 
         ret.push_back(prb.apply(slizzo));
@@ -40,3 +40,9 @@ Slice::rows() const {
     return ret;
 }
 
+DataSet::RowBanks
+Join::rows() const {
+    // XXX: Implement me!
+    return {};
+}
+#endif

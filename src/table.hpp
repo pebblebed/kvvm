@@ -41,6 +41,8 @@ class Table : public DataSet {
 
     Table addCol(std::string name, Cell defaultVal);
     Table addRow(const Row& row);
+
+    const IData& store() const;
 };
 
 #endif

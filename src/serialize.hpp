@@ -171,7 +171,7 @@ struct Hashable {
         : hash(u.hash())
     { }
 
-    Underlying materialize(IData& store) {
+    Underlying materialize(const IData& store) {
         return Underlying::deserialize(store.get(hash));
     }
 };
