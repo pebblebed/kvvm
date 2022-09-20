@@ -52,6 +52,7 @@ add_library(
     src/serialize.cpp
     src/udf.cpp
     src/dbg.cpp
+    src/wasm_runtime.cpp
 )
 
 add_executable(
@@ -72,12 +73,14 @@ add_executable(
   test/blob_test.cpp
   test/istore_test.cpp
   test/rowbank_test.cpp
+  test/wasm_test.cpp
 )
 
 target_link_libraries(
   test_lowest_level
   gtest_main
   kvvm
+  vmlib
   OpenSSL::SSL
 )
 
@@ -92,6 +95,7 @@ target_link_libraries(
   test_table
   gtest_main
   kvvm
+  vmlib
   OpenSSL::SSL
 )
 
