@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 3.14)
-project(my_project)
+cmake_minimum_required(VERSION 3.23)
+project(kvvm)
 
 # GoogleTest requires at least C++11
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_BUILD_TYPE Debug)
 
+# WAMR!
 set(WAMR_ROOT_DIR wasm)
 set (WAMR_BUILD_PLATFORM "linux")
 set (WAMR_BUILD_TARGET X86_64)
@@ -23,8 +24,12 @@ set (WAMR_BUILD_THREAD_MGR 1)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-find_package(OpenSSL REQUIRED)
+# Our webassembly udfs!
+execute_process(
+  COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/src/udfs -B ${CMAKE_BINARY_DIR}/udfs
+)
 
+find_package(OpenSSL REQUIRED)
 if(UNIX AND APPLE)
     include_directories(AFTER /opt/homebrew/opt/openssl/include)
 endif()

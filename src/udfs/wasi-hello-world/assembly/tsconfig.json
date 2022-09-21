@@ -1,0 +1,6 @@
+{
+  "extends": "../../../../../../home/gitpod/.nvm/versions/node/v16.14.2/lib/node_modules/assemblyscript/std/assembly.json",
+  "include": [
+    "./**/*.ts"
+  ]
+}
