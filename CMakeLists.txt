@@ -25,9 +25,13 @@ include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
 # Our webassembly udfs!
+function(build_wasm_dir DIR)
 execute_process(
-  COMMAND ${CMAKE_COMMAND} -S ${CMAKE_SOURCE_DIR}/src/udfs -B ${CMAKE_BINARY_DIR}/udfs
+  COMMAND npm run asbuild
+  WORKING_DIRECTORY ${DIR}
 )
+endfunction()
+build_wasm_dir(src/udfs/wasi-hello-world)
 
 find_package(OpenSSL REQUIRED)
 if(UNIX AND APPLE)
