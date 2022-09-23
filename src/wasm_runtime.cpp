@@ -15,6 +15,7 @@ struct WasmImpl: public WasmRuntime {
         wasm_runtime_init();
         auto progzo = (uint8_t*)&wasm_proggy[0];
         module = wasm_runtime_load(progzo, wasm_proggy.size(), error_buf, sizeof(error_buf));
+        wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
     }
 
     virtual std::string run(std::string arg) {
