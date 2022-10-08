@@ -6,6 +6,7 @@
 struct WasmRuntime {
   static WasmRuntime* load(const std::string& wasm_bytes);
   virtual std::string run(std::string arg1) = 0;
+  virtual ~WasmRuntime();
 };
 
 #endif
