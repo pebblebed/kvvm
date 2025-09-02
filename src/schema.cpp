@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "schema.hpp"
 
 using namespace std;

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "istore.hpp"
 
 using namespace std;

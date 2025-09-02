@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "cell.hpp"
 
 Cell Cell::null() {
