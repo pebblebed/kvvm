@@ -1,13 +1,24 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
 
-project (iwasm)
+option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
+
+if(ESP_PLATFORM)
+  include (${COMPONENT_DIR}/build-scripts/esp-idf/wamr/CMakeLists.txt)
+  return()
+endif()
+
+project (iwasm LANGUAGES C)
+
+set(CMAKE_CXX_STANDARD 17)
 
 set (CMAKE_VERBOSE_MAKEFILE OFF)
 
-string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+if (NOT DEFINED WAMR_BUILD_PLATFORM)
+  string (TOLOWER ${CMAKE_HOST_SYSTEM_NAME} WAMR_BUILD_PLATFORM)
+endif ()
 
 # Reset default linker flags
 set (CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
@@ -83,6 +94,16 @@ if (NOT DEFINED WAMR_BUILD_LIB_PTHREAD)
   set (WAMR_BUILD_LIB_PTHREAD 0)
 endif ()
 
+if (NOT DEFINED WAMR_BUILD_LIB_WASI_THREADS)
+  # Disable wasi threads library by default
+  set (WAMR_BUILD_LIB_WASI_THREADS 0)
+endif ()
+
+if (NOT DEFINED WAMR_BUILD_COPY_CALL_STACK)
+  # Disable copy callstack by default
+  set (WAMR_BUILD_COPY_CALL_STACK 0)
+endif()
+
 if (NOT DEFINED WAMR_BUILD_MINI_LOADER)
   # Disable wasm mini loader by default
   set (WAMR_BUILD_MINI_LOADER 0)
@@ -94,25 +115,23 @@ if (NOT DEFINED WAMR_BUILD_SIMD)
 endif ()
 
 if (NOT DEFINED WAMR_BUILD_REF_TYPES)
-  # Disable reference types by default
-  set (WAMR_BUILD_REF_TYPES 0)
-endif ()
-
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+  # Enable reference types by default
+  set (WAMR_BUILD_REF_TYPES 1)
 endif ()
 
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
-
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wshadow")
-# set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wconversion -Wsign-conversion")
-
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+if (NOT WIN32)
+  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security \
+                                       -ffunction-sections -fdata-sections \
+                                       -Wno-unused-parameter -Wno-pedantic \
+                                       -fvisibility=hidden")
+  # Remove the extra spaces for better make log
+  string (REGEX REPLACE "  *" " " CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wformat -Wformat-security -Wno-unused")
+endif()
 
 if (WAMR_BUILD_TARGET MATCHES "X86_.*" OR WAMR_BUILD_TARGET STREQUAL "AMD_64")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
@@ -130,25 +149,43 @@ endif ()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
-# STATIC LIBRARY
-add_library(iwasm_static STATIC ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_static PROPERTIES OUTPUT_NAME vmlib)
+set (THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
-install (TARGETS iwasm_static ARCHIVE DESTINATION lib)
+add_library (vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+set_target_properties (vmlib PROPERTIES OUTPUT_NAME iwasm)
+target_include_directories(vmlib INTERFACE
+  $<BUILD_INTERFACE:${WAMR_ROOT_DIR}/core/iwasm/include>
+  $<INSTALL_INTERFACE:include>
+)
 
-# SHARED LIBRARY
-add_library (iwasm_shared SHARED ${WAMR_RUNTIME_LIB_SOURCE})
-set_target_properties (iwasm_shared PROPERTIES OUTPUT_NAME iwasm)
-target_link_libraries (iwasm_shared ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl -lpthread)
-
-if (MINGW)
-target_link_libraries (iwasm_shared -lWs2_32)
+target_link_libraries (vmlib PUBLIC ${LLVM_AVAILABLE_LIBS} ${UV_A_LIBS} -lm -ldl ${CMAKE_THREAD_LIBS_INIT})
+if (WAMR_BUILD_WASM_CACHE EQUAL 1)
+  target_link_libraries(vmlib INTERFACE boringssl_crypto)
 endif ()
 
-install (TARGETS iwasm_shared LIBRARY DESTINATION lib)
+if (MINGW)
+  target_link_libraries(vmlib INTERFACE -lWs2_32 -lwsock32)
+  target_link_libraries(vmlib PRIVATE ws2_32)
+endif ()
 
-# HEADERS
-install (FILES
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
-    ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
-    DESTINATION include)
+if (WIN32)
+  target_link_libraries(vmlib PRIVATE ntdll)
+endif()
+
+set (WAMR_PUBLIC_HEADERS
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_c_api.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/wasm_export.h
+  ${WAMR_ROOT_DIR}/core/iwasm/include/lib_export.h
+)
+set_target_properties (vmlib PROPERTIES PUBLIC_HEADER "${WAMR_PUBLIC_HEADERS}")
+
+set_version_info (vmlib)
+
+install (TARGETS vmlib
+  EXPORT iwasmTargets
+  LIBRARY DESTINATION lib
+  PUBLIC_HEADER DESTINATION include
+)
+
+install_iwasm_package ()

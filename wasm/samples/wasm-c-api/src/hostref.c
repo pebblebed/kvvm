@@ -50,9 +50,11 @@ own wasm_ref_t* call_v_r(const wasm_func_t* func) {
   wasm_val_t rs[] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_EMPTY_VEC;
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
@@ -63,9 +65,11 @@ void call_r_v(const wasm_func_t* func, wasm_ref_t* ref) {
   wasm_val_t vs[1] = { WASM_REF_VAL(ref) };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
 }
@@ -76,9 +80,11 @@ own wasm_ref_t* call_r_r(const wasm_func_t* func, wasm_ref_t* ref) {
   wasm_val_t rs[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
@@ -89,9 +95,11 @@ void call_ir_v(const wasm_func_t* func, int32_t i, wasm_ref_t* ref) {
   wasm_val_t vs[2] = { WASM_I32_VAL(i), WASM_REF_VAL(ref) };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_EMPTY_VEC;
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
 }
@@ -102,9 +110,11 @@ own wasm_ref_t* call_i_r(const wasm_func_t* func, int32_t i) {
   wasm_val_t rs[1] = { WASM_INIT_VAL };
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(rs);
-  if (wasm_func_call(func, &args, &results)) {
-    printf("> Error calling function!\n");
-    exit(1);
+  wasm_trap_t *trap = wasm_func_call(func, &args, &results);
+  if (trap) {
+      printf("> Error calling function!\n");
+      wasm_trap_delete(trap);
+      exit(1);
   }
   printf("okay\n");
   return rs[0].of.ref;
@@ -183,7 +193,7 @@ int main(int argc, const char* argv[]) {
   // Create external callback function.
   printf("Creating callback...\n");
   own wasm_functype_t* callback_type = wasm_functype_new_1_1(
-    wasm_valtype_new(WASM_ANYREF), wasm_valtype_new(WASM_ANYREF));
+    wasm_valtype_new(WASM_EXTERNREF), wasm_valtype_new(WASM_EXTERNREF));
   own wasm_func_t* callback_func =
     wasm_func_new(store, callback_type, callback);
 
@@ -235,7 +245,7 @@ int main(int argc, const char* argv[]) {
   wasm_ref_delete(host2_cp);
 
   own wasm_val_t val;
-  val.kind = WASM_ANYREF;
+  val.kind = WASM_EXTERNREF;
   val.of.ref = wasm_ref_copy(host1);
   wasm_ref_t *ref_cp = wasm_ref_copy(val.of.ref);
   check(ref_cp, host1);
@@ -254,12 +264,12 @@ int main(int argc, const char* argv[]) {
   check(call_v_r(global_get), NULL);
 
   wasm_global_get(global, &val);
-  assert(val.kind == WASM_ANYREF);
+  assert(val.kind == WASM_EXTERNREF);
   assert(val.of.ref == NULL);
   val.of.ref = host2;
   wasm_global_set(global, &val);
   wasm_global_get(global, &val);
-  assert(val.kind == WASM_ANYREF);
+  assert(val.kind == WASM_EXTERNREF);
   assert(val.of.ref == host2);
 
   printf("Accessing table...\n");

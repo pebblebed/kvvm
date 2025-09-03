@@ -64,7 +64,13 @@ os_vprintf(const char *format, va_list ap);
  * Get microseconds after boot.
  */
 uint64
-os_time_get_boot_microsecond(void);
+os_time_get_boot_us(void);
+
+/**
+ * Get thread-specific CPU-time clock in microseconds
+ */
+uint64
+os_time_thread_cputime_us(void);
 
 /**
  * Get current thread id.
@@ -80,6 +86,13 @@ os_self_thread(void);
  */
 uint8 *
 os_thread_get_stack_boundary(void);
+
+/**
+ * Set whether the MAP_JIT region write protection is enabled for this thread.
+ * Pass true to make the region executable, false to make it writable.
+ */
+void
+os_thread_jit_write_protect_np(bool enabled);
 
 /**
  ************** mutext APIs ***********
@@ -119,15 +132,43 @@ enum {
     MMAP_MAP_32BIT = 1,
     /* Don't interpret addr as a hint: place the mapping at exactly
        that address. */
-    MMAP_MAP_FIXED = 2
+    MMAP_MAP_FIXED = 2,
 };
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags);
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file);
 void
 os_munmap(void *addr, size_t size);
 int
 os_mprotect(void *addr, size_t size, int prot);
+
+static inline void *
+os_mremap_slow(void *old_addr, size_t old_size, size_t new_size)
+{
+    void *new_memory = os_mmap(NULL, new_size, MMAP_PROT_WRITE | MMAP_PROT_READ,
+                               0, os_get_invalid_handle());
+    if (!new_memory) {
+        return NULL;
+    }
+    /*
+     * bh_memcpy_s can't be used as it doesn't support values bigger than
+     * UINT32_MAX
+     */
+    memcpy(new_memory, old_addr, new_size < old_size ? new_size : old_size);
+    os_munmap(old_addr, old_size);
+
+    return new_memory;
+}
+
+/* Doesn't guarantee that protection flags will be preserved.
+   os_mprotect() must be called after remapping. */
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size);
+
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+void *
+os_get_dbus_mirror(void *ibus);
+#endif
 
 /**
  * Flush cpu data cache, in some CPUs, after applying relocation to the
@@ -137,6 +178,12 @@ os_mprotect(void *addr, size_t size, int prot);
  */
 void
 os_dcache_flush(void);
+
+/**
+ * Flush instruction cache.
+ */
+void
+os_icache_flush(void *start, size_t len);
 
 #ifdef __cplusplus
 }

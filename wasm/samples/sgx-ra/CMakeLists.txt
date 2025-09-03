@@ -2,7 +2,7 @@
 # Copyright (c) 2020-2021 Alibaba Cloud
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 3.1.4)
+cmake_minimum_required(VERSION 3.14)
 project(sgx-ra)
 
 ################ runtime settings  ##############
@@ -39,10 +39,6 @@ set (WAMR_BUILD_FAST_INTERP 1)
 set (WAMR_BUILD_LIB_RATS 1)
 
 # compiling and linking flags
-if (COLLECT_CODE_COVERAGE EQUAL 1)
-  set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-endif ()
-
 set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu11 -ffunction-sections -fdata-sections \
                                      -Wall -Wno-unused-parameter -Wno-pedantic \
@@ -64,14 +60,16 @@ add_custom_command (
 add_custom_target (vmlib_untrusted ALL DEPENDS libvmlib_untrusted.a)
 
 execute_process (
-    COMMAND bash -c "sed -i -E 's/^#define LIB_RATS 0/#define LIB_RATS 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Enclave/Enclave.edl"
+    COMMAND bash -c "sed -i -E 's/^#define WASM_ENABLE_LIB_RATS 0/#define WASM_ENABLE_LIB_RATS 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Enclave/Enclave.edl"
+    COMMAND bash -c "sed -i -E 's/^WAMR_BUILD_LIB_RATS = 0/WAMR_BUILD_LIB_RATS = 1/g' ${SGX_PLATFORM_DIR}/enclave-sample/Makefile"
     OUTPUT_VARIABLE cmdOutput
 )
 
 ################ wamr runtime ###################
 add_custom_target (
               iwasm ALL
-              DEPENDS vmlib_untrusted vmlib_untrusted
+              DEPENDS vmlib_untrusted vmlib_untrusted vmlib
+              COMMAND make -C ${SGX_PLATFORM_DIR}/enclave-sample clean
               COMMAND make -C  ${SGX_PLATFORM_DIR}/enclave-sample SGX_MODE=HW SGX_DEBUG=1 VMLIB_BUILD_DIR=${CMAKE_BINARY_DIR}
               COMMAND ${CMAKE_COMMAND} -E copy ${SGX_PLATFORM_DIR}/enclave-sample/enclave.signed.so ${CMAKE_BINARY_DIR}
               COMMAND ${CMAKE_COMMAND} -E copy ${SGX_PLATFORM_DIR}/enclave-sample/iwasm ${CMAKE_BINARY_DIR}

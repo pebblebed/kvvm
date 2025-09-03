@@ -1,7 +1,10 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 2.8...3.18)
+cmake_minimum_required(VERSION 3.14)
+
+include(CheckPIESupported)
+
 project(socket_api_sample)
 
 #######################################
@@ -87,9 +90,17 @@ ExternalProject_Add(wasm-app
                       ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src
   BUILD_COMMAND     ${CMAKE_COMMAND} --build .
   INSTALL_COMMAND   ${CMAKE_COMMAND} -E copy
+                      addr_resolve.wasm ${CMAKE_BINARY_DIR}
                       tcp_client.wasm ${CMAKE_BINARY_DIR}
                       tcp_server.wasm ${CMAKE_BINARY_DIR}
                       send_recv.wasm ${CMAKE_BINARY_DIR}
+                      socket_opts.wasm ${CMAKE_BINARY_DIR}
+                      udp_client.wasm ${CMAKE_BINARY_DIR}
+                      udp_server.wasm ${CMAKE_BINARY_DIR}
+                      multicast_client.wasm ${CMAKE_BINARY_DIR}
+                      multicast_server.wasm ${CMAKE_BINARY_DIR}
+                      timeout_client.wasm ${CMAKE_BINARY_DIR}
+                      timeout_server.wasm ${CMAKE_BINARY_DIR}
 )
 
 add_executable(tcp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_server.c)
@@ -99,6 +110,22 @@ add_executable(tcp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/tcp_client.c)
 
 add_executable(send_recv ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/send_recv.c)
 target_link_libraries(send_recv pthread)
+
+add_executable(addr_resolve ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/addr_resolve.c)
+
+add_executable(socket_opts ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/socket_opts.c)
+
+add_executable(udp_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/udp_client.c)
+
+add_executable(udp_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/udp_server.c)
+
+add_executable(multicast_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/multicast_client.c)
+
+add_executable(multicast_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/multicast_server.c)
+
+add_executable(timeout_client ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/timeout_client.c)
+
+add_executable(timeout_server ${CMAKE_CURRENT_SOURCE_DIR}/wasm-src/timeout_server.c)
 
 ############################################
 ## Build iwasm with wasi and pthread support
@@ -144,9 +171,9 @@ set(WAMR_BUILD_JIT 0)
 set(WAMR_BUILD_LIBC_BUILTIN 1)
 set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_LIB_PTHREAD 1)
+set(WAMR_BUILD_REF_TYPES 1)
 
 # compiling and linking flags
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 endif ()
@@ -164,4 +191,6 @@ set (RUNTIME_SOURCE_ALL
     ${UNCOMMON_SHARED_SOURCE}
 )
 add_executable (iwasm ${RUNTIME_SOURCE_ALL})
+check_pie_supported()
+set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(iwasm vmlib -lpthread -lm -ldl)

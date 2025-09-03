@@ -43,12 +43,30 @@ os_free(void *ptr)
     free(ptr);
 }
 
-void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+int
+os_dumps_proc_mem_info(char *out, unsigned int size)
 {
-    if (size > ((unsigned)~0))
+    return -1;
+}
+
+void *
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+{
+    void *addr;
+
+    if (size >= UINT32_MAX)
         return NULL;
-    return BH_MALLOC((unsigned)size);
+
+    if ((addr = BH_MALLOC((uint32)size)))
+        memset(addr, 0, (uint32)size);
+
+    return addr;
+}
+
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    return os_mremap_slow(old_addr, old_size, new_size);
 }
 
 void
@@ -72,4 +90,14 @@ os_dcache_flush(void)
     SCB_CleanDCache();
     irq_unlock(key);
 #endif
+}
+
+void
+os_icache_flush(void *start, size_t len)
+{}
+
+os_raw_file_handle
+os_invalid_raw_handle(void)
+{
+    return -1;
 }

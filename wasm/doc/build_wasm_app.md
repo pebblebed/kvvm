@@ -3,12 +3,12 @@
 Prepare WASM building environments
 ==================================
 
-For C and C++, WASI-SDK version 12.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
+For C and C++, WASI-SDK version 19.0+ is the major tool supported by WAMR to build WASM applications. Also, we can use [Emscripten SDK (EMSDK)](https://github.com/emscripten-core/emsdk), but it is not recommended. And there are some other compilers such as the standard clang compiler, which might also work [here](./other_wasm_compilers.md).
 
-To install WASI SDK, please download the [wasi-sdk release](https://github.com/CraneStation/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
+To install WASI SDK, please download the [wasi-sdk release](https://github.com/WebAssembly/wasi-sdk/releases) and extract the archive to default path `/opt/wasi-sdk`.
 
 The official *wasi-sdk release* doesn't fully support *latest 128-bit SIMD spec* yet. WAMR provides a script in [build-wasi-sdk](../test-tools/build-wasi-sdk/) to generate
-another wasi-sdk with *llvm-13* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
+another wasi-sdk with *llvm-15* from source code and installs it at *../test-tools/wasi-sdk*. If you plan to build WASM applications with *latest 128-bit SIMD*, please use it instead of the official release.
 
 And [sample workloads](../samples/workload) are using the self-compiled wasi-sdk.
 
@@ -16,24 +16,24 @@ For [AssemblyScript](https://github.com/AssemblyScript/assemblyscript), please r
 
 For Rust, please refer to [Install Rust and Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) to install *cargo*, *rustc* and *rustup*. By default they are under ~/.cargo/bin.
 
-And then run such a command to install `wasm32-wasi` target.
+And then run such a command to install `wasm32-wasip1` target.
 
 ``` bash
-$ rustup target add wasm32-wasi
+$ rustup target add wasm32-wasip1
 ```
 
 To build WASM applications, run
 
 ``` bash
-$ cargo build --target wasm32-wasi
+$ cargo build --target wasm32-wasip1
 ```
 
-The output files are under `target/wasm32-wasi`.
+The output files are under `target/wasm32-wasip1`.
 
 To build a release version
 
 ``` bash
-$ cargo build --release --target wasm32-wasi
+$ cargo build --release --target wasm32-wasip1
 ```
 
 
@@ -90,7 +90,7 @@ There are some useful options that are used to compile C/C++ to Wasm (for a full
 
 - **-Wl,--max-memory=\<value\>** Maximum size of the linear memory, which must be a multiple of 65536
 
-- **-z stack-size=\<vlaue\>** The auxiliary stack size, which is an area of linear memory, must be smaller than the initial memory size.
+- **-z stack-size=\<value\>** The auxiliary stack size, which is an area of linear memory, must be smaller than the initial memory size.
 
 - **-Wl,--strip-all** Strip all symbols
 
@@ -126,6 +126,18 @@ If we want to build the wasm app with wasi mode, we may build the wasm app with 
 
 to generate a wasm binary with wasi mode, the auxiliary stack size is 8192 bytes, initial memory size is 64 KB,  heap base global and data end global are exported, wasi entry function exported (_start function), and all symbols are stripped. Note that it is wasi mode, so libc-wasi should be enabled by runtime embedder or iwasm (with `cmake -DWAMR_BUILD_LIBC_WASI=1`, enabled by iwasm in Linux by default), and normally no need to export main function, by default _start function is executed by iwasm.
 
+> Note: for the Rust project, we can set these flags by setting the `rustflags` in the Cargo configuration file, e.g. `<project_dir>/.cargo/config.toml` or `$CARGO_HOME/config.toml`, for example:
+> ```toml
+> [build]
+> rustflags = [
+>   "-C", "link-arg=--initial-memory=65536",
+>   "-C", "link-arg=-zstack-size=8192",
+>   "-C", "link-arg=--export=__heap_base",
+>   "-C", "link-arg=--export=__data_end",
+>   "-C", "link-arg=--strip-all",
+> ]
+> ```
+
 ## 2. How to reduce the footprint?
 
 Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are no file io operations in wasm app, we should build the wasm app with -nostdlib option as possible as we can, since the compiler doesn't build the libc source code into wasm bytecodes, which greatly reduces the binary size.
@@ -138,11 +150,37 @@ Firstly if libc-builtin (-nostdlib) mode meets the requirements, e.g. there are 
   ```
   If the two globals are exported, and there are no memory.grow and memory.size opcodes (normally nostdlib mode doesn't introduce these opcodes since the libc malloc function isn't built into wasm bytecode), WAMR runtime will truncate the linear memory at the place of \__heap_base and append app heap to the end, so we don't need to allocate the memory specified by `-Wl,--initial-memory=n` which must be at least 64 KB. This is helpful for some embedded devices whose memory resource might be limited.
 
+> For the Rust project, please set the flags in the Cargo configuration file, for example:
+> ```toml
+> [build]
+> rustflags = [
+>   "-C", "link-arg=--export=__heap_base",
+>   "-C", "link-arg=--export=__data_end",
+>   "-C", "link-arg=--initial-memory=65536",
+> ]
+> ```
+
 - reduce auxiliary stack size
 
   The auxiliary stack is an area of linear memory, normally the size is 64 KB by default which might be a little large for embedded devices and partly used, we can use `-z stack-size=n` to set its size.
 
+> For the Rust project, please set the flag in the Cargo configuration file, for example:
+> ```toml
+> [build]
+> rustflags = [
+>   "-C", "link-arg=-zstack-size=8192"
+> ]
+> ```
+
 - use -O3 and -Wl,--strip-all
+
+> For the Rust project, please set the flag in the Cargo configuration file, for example:
+> ```toml
+> [build]
+> rustflags = [
+>  "-C", "link-arg=--strip-all"
+> ]
+> ```
 
 - reduce app heap size when running iwasm
 
@@ -237,7 +275,7 @@ You can cross compile your project by using the toolchain provided by WAMR.
 Assume the original `CMakeLists.txt` for `test.c` likes below:
 
 ``` cmake
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.14)
 project(hello_world)
 add_executable(hello_world test.c)
 ```
@@ -305,7 +343,7 @@ Usage: wamrc [options] -o output_file wasm_file
                             Use --cpu-features=+help to list all the features supported
   --opt-level=n             Set the optimization level (0 to 3, default is 3)
   --size-level=n            Set the code size level (0 to 3, default is 3)
-  -sgx                      Generate code for SGX platform (Intel Software Guard Extention)
+  -sgx                      Generate code for SGX platform (Intel Software Guard Extension)
   --bounds-checks=1/0       Enable or disable the bounds checks for memory access:
                               by default it is disabled in all 64-bit platforms except SGX and
                               in these platforms runtime does bounds checks with hardware trap,
@@ -334,6 +372,35 @@ Examples: wamrc -o test.aot test.wasm
           wamrc --target=i386 --format=object -o test.o test.wasm
 ```
 
+## AoT-compiled module compatibility among WAMR versions
+
+When making major ABI changes for AoT-compiled modules, we bump
+`AOT_CURRENT_VERSION` constant in `core/config.h` header.
+The runtime rejects to load a module AoT-compiled with wamrc with
+a non-compatible`AOT_CURRENT_VERSION`.
+
+We try our best to maintain our runtime ABI for AoT-compiled modules
+compatible among WAMR versions with compatible `AOT_CURRENT_VERSION`
+so that combinations of older wamrc and newer runtime usually work.
+However, there might be minor incompatibilities time to time.
+For productions, we recommend to use compatible versions of
+wamrc and the runtime.
+
+| WAMR version | AOT_CURRENT_VERSION | Compatible AOT version |                        |
+| ------------ | ------------------- | ---------------------- | ---------------------- |
+| 1.x          | 3                   | 3                      |                        |
+| 2.0.0        | 3                   | 3                      |                        |
+| 2.1.x        | 3                   | 3                      |                        |
+| 2.2.0        | 3                   | 3                      |                        |
+| 2.3.0        | 4                   | 3,4                    |                        |
+| 2.4.0        | 4                   | 3,4                    | See the following note |
+| 2.4.1        | 5                   | 5                      |                        |
+
+Note: 2.4.0 had a broken AoT versioning. See [issue 4504] for details.
+We recommend all 2.4.0 users to migrate to 2.4.1.
+
+[issue 4504]: https://github.com/bytecodealliance/wasm-micro-runtime/issues/4504
+
 ## AoT compilation with 3rd-party toolchains
 
 `wamrc` uses LLVM to compile wasm bytecode to AoT file, this works for most of the architectures, but there may be circumstances where you want to use 3rd-party toolchains to take over some steps of the compilation pipeline, e.g.
@@ -356,7 +423,7 @@ Examples: wamrc -o test.aot test.wasm
 
 ### Usage example
 ``` bash
-WAMRC_LLC_COMPILER=<path/to/your/compiler/driver> ./wamrc -o test.aot test.wasm
+WAMRC_LLC_COMPILER=/usr/local/opt/llvm@14/bin/clang WAMRC_LLC_FLAGS="--target=x86_64-pc-linux-gnu -mcmodel=medium -c -O3" ./wamrc -o test.aot test.wasm
 ```
 
 > Note: `wamrc` will verify whether the specified file exists and executable. If verification failed, `wamrc` will report a warning and fallback to normal pipeline. Since the verification is based on file, you **must specify the absolute path to the binary** even if it's in `$PATH`
@@ -364,6 +431,8 @@ WAMRC_LLC_COMPILER=<path/to/your/compiler/driver> ./wamrc -o test.aot test.wasm
 > Note: `WAMRC_LLC_COMPILER` has higher priority than `WAMRC_ASM_COMPILER`, if `WAMRC_LLC_COMPILER` is set and verified, then `WAMRC_ASM_COMPILER` will be ignored.
 
 > Note: the `LLC` and `ASM` in the env name just means this compiler will be used to compile the `LLVM IR file`/`assembly file` to object file, usually passing the compiler driver is the simplest way. (e.g. for LLVM toolchain, you don't need to pass `/usr/bin/llc`, using `/usr/bin/clang` is OK)
+
+> Note: You might need to set `WAMRC_LLC_FLAGS`/`WAMRC_ASM_FLAGS` to match whatever the `wamrc` command would automatically do. In the above example, `-mcmodel=medium` corresponds to `wamrc --size-level=1`, which is the default of `wamrc` on macOS.
 
 Run WASM app in WAMR mini product build
 =======================================

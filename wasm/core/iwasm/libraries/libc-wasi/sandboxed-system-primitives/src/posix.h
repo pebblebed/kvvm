@@ -47,16 +47,21 @@ struct argv_environ_values {
 };
 
 struct addr_pool {
-    struct addr_pool *next;
     /* addr and mask in host order */
-    uint32 addr;
+    union {
+        uint32 ip4;
+        uint16 ip6[8];
+    } addr;
+    struct addr_pool *next;
+    __wasi_addr_type_t type;
     uint8 mask;
 };
 
 bool
 fd_table_init(struct fd_table *);
 bool
-fd_table_insert_existing(struct fd_table *, __wasi_fd_t, int);
+fd_table_insert_existing(struct fd_table *, __wasi_fd_t, os_file_handle,
+                         bool is_stdio);
 bool
 fd_prestats_init(struct fd_prestats *);
 bool

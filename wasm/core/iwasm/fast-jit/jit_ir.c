@@ -10,7 +10,11 @@
 /**
  * Operand kinds of instructions.
  */
-enum { JIT_OPND_KIND_Reg, JIT_OPND_KIND_VReg, JIT_OPND_KIND_LookupSwitch };
+enum {
+    JIT_OPND_KIND_Reg,
+    JIT_OPND_KIND_VReg,
+    JIT_OPND_KIND_LookupSwitch,
+};
 
 /**
  * Operand kind of each instruction.
@@ -44,6 +48,18 @@ static const uint8 insn_opnd_first_use[] = {
 #define JIT_INSN_NEW_VReg(OPND_NUM)                     \
     jit_calloc(offsetof(JitInsn, _opnd._opnd_VReg._reg) \
                + sizeof(JitReg) * (OPND_NUM))
+
+JitInsn *
+_jit_insn_new_Reg_0(JitOpcode opc)
+{
+    JitInsn *insn = JIT_INSN_NEW_Reg(0);
+
+    if (insn) {
+        insn->opcode = opc;
+    }
+
+    return insn;
+}
 
 JitInsn *
 _jit_insn_new_Reg_1(JitOpcode opc, JitReg r0)
@@ -380,17 +396,13 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
 
     /* Create entry and exit blocks.  They must be the first two
        blocks respectively.  */
-    if (!(entry_block = jit_cc_new_basic_block(cc, 0))
-        || !(exit_block = jit_cc_new_basic_block(cc, 0)))
+    if (!(entry_block = jit_cc_new_basic_block(cc, 0)))
         goto fail;
 
-    if (!(cc->exce_basic_blocks =
-              jit_calloc(sizeof(JitBasicBlock *) * JIT_EXCE_NUM)))
+    if (!(exit_block = jit_cc_new_basic_block(cc, 0))) {
+        jit_basic_block_delete(entry_block);
         goto fail;
-
-    if (!(cc->incoming_insns_for_exec_bbs =
-              jit_calloc(sizeof(JitIncomingInsnList) * JIT_EXCE_NUM)))
-        goto fail;
+    }
 
     /* Record the entry and exit labels, whose indexes must be 0 and 1
        respectively.  */
@@ -398,6 +410,14 @@ jit_cc_init(JitCompContext *cc, unsigned htab_size)
     cc->exit_label = jit_basic_block_label(exit_block);
     bh_assert(jit_reg_no(cc->entry_label) == 0
               && jit_reg_no(cc->exit_label) == 1);
+
+    if (!(cc->exce_basic_blocks =
+              jit_calloc(sizeof(JitBasicBlock *) * EXCE_NUM)))
+        goto fail;
+
+    if (!(cc->incoming_insns_for_exec_bbs =
+              jit_calloc(sizeof(JitIncomingInsnList) * EXCE_NUM)))
+        goto fail;
 
     cc->hreg_info = jit_codegen_get_hreg_info();
     bh_assert(cc->hreg_info->info[JIT_REG_KIND_I32].num > 3);
@@ -462,7 +482,7 @@ jit_cc_destroy(JitCompContext *cc)
     jit_free(cc->exce_basic_blocks);
 
     if (cc->incoming_insns_for_exec_bbs) {
-        for (i = 0; i < JIT_EXCE_NUM; i++) {
+        for (i = 0; i < EXCE_NUM; i++) {
             incoming_insn = cc->incoming_insns_for_exec_bbs[i];
             while (incoming_insn) {
                 incoming_insn_next = incoming_insn->next;
@@ -556,6 +576,7 @@ address_of_const(JitCompContext *cc, JitReg reg, unsigned size)
     unsigned no = jit_reg_no(reg);
     unsigned idx = no & ~_JIT_REG_CONST_IDX_FLAG;
 
+    bh_assert(kind < JIT_REG_KIND_L32);
     bh_assert(jit_reg_is_const_idx(reg) && idx < cc->_const_val._num[kind]);
 
     return cc->_const_val._value[kind] + size * idx;
@@ -568,6 +589,7 @@ next_of_const(JitCompContext *cc, JitReg reg)
     unsigned no = jit_reg_no(reg);
     unsigned idx = no & ~_JIT_REG_CONST_IDX_FLAG;
 
+    bh_assert(kind < JIT_REG_KIND_L32);
     bh_assert(jit_reg_is_const_idx(reg) && idx < cc->_const_val._num[kind]);
 
     return cc->_const_val._next[kind][idx];

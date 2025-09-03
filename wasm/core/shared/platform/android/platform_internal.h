@@ -27,6 +27,7 @@
 #include <sched.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -55,7 +56,10 @@ typedef pthread_t korp_tid;
 typedef pthread_mutex_t korp_mutex;
 typedef pthread_cond_t korp_cond;
 typedef pthread_t korp_thread;
+typedef pthread_rwlock_t korp_rwlock;
 typedef sem_t korp_sem;
+
+#define OS_THREAD_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
 
 #define os_thread_local_attribute __thread
 
@@ -76,8 +80,6 @@ typedef jmp_buf korp_jmpbuf;
 #define os_longjmp longjmp
 #define os_alloca alloca
 
-#define os_getpagesize getpagesize
-
 typedef void (*os_signal_handler)(void *sig_addr);
 
 int
@@ -96,6 +98,8 @@ void
 os_sigreturn();
 #endif /* end of BUILD_TARGET_X86_64/AMD_64/AARCH64/RISCV64 */
 #endif /* end of WASM_DISABLE_HW_BOUND_CHECK */
+
+#define os_getpagesize getpagesize
 
 typedef long int __syscall_slong_t;
 
@@ -136,15 +140,21 @@ seekdir(DIR *__dir, long __location);
 
 #endif
 
-#if __ANDROID_API__ < 24
-
 ssize_t
 preadv(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 
 ssize_t
 pwritev(int __fd, const struct iovec *__iov, int __count, off_t __offset);
 
-#endif
+typedef int os_file_handle;
+typedef DIR *os_dir_stream;
+typedef int os_raw_file_handle;
+
+static inline os_file_handle
+os_get_invalid_handle(void)
+{
+    return -1;
+}
 
 #ifdef __cplusplus
 }

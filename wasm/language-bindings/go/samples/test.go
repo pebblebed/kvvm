@@ -6,7 +6,7 @@
 package main
 
 import (
-    "gitlab.alipay-inc.com/TNT_Runtime/ant-runtime/bindings/go/wamr"
+    "github.com/bytecodealliance/wasm-micro-runtime/language-bindings/go/wamr"
     "fmt"
 )
 
@@ -87,7 +87,7 @@ func main() {
     var instance *wamr.Instance
     var argv []uint32
     var results []interface{}
-    var offset uint32
+    var offset uint64
     var native_addr *uint8
     var err error
 

@@ -94,7 +94,7 @@ typedef uint32 JitReg;
 /*
  * Constant index flag of non-constant-value (constant value flag is
  * not set in register no. field) integer, floating point and vector
- * regisers. If this flag is set, the rest bits of the register
+ * registers. If this flag is set, the rest bits of the register
  * no. represent an index to the constant value table of the
  * corresponding type of the register and the register is read-only.
  */
@@ -313,7 +313,8 @@ typedef struct JitInsn {
     /* Opcode of the instruction. */
     uint16 opcode;
 
-    /* Reserved field that may be used by optimizations locally. */
+    /* Reserved field that may be used by optimizations locally.
+     * bit_0(Least Significant Bit) is atomic flag for load/store */
     uint8 flags_u8;
 
     /* The unique ID of the instruction. */
@@ -346,6 +347,9 @@ typedef enum JitOpcode {
  * Helper functions for creating new instructions.  Don't call them
  * directly.  Use jit_insn_new_NAME, such as jit_insn_new_MOV instead.
  */
+
+JitInsn *
+_jit_insn_new_Reg_0(JitOpcode opc);
 JitInsn *
 _jit_insn_new_Reg_1(JitOpcode opc, JitReg r0);
 JitInsn *
@@ -368,31 +372,35 @@ _jit_insn_new_LookupSwitch_1(JitOpcode opc, JitReg value, uint32 num);
  * Instruction creation functions jit_insn_new_NAME, where NAME is the
  * name of the instruction defined in jit_ir.def.
  */
+#define ARG_DECL_Reg_0
+#define ARG_LIST_Reg_0
 #define ARG_DECL_Reg_1 JitReg r0
-#define ARG_LIST_Reg_1 r0
+#define ARG_LIST_Reg_1 , r0
 #define ARG_DECL_Reg_2 JitReg r0, JitReg r1
-#define ARG_LIST_Reg_2 r0, r1
+#define ARG_LIST_Reg_2 , r0, r1
 #define ARG_DECL_Reg_3 JitReg r0, JitReg r1, JitReg r2
-#define ARG_LIST_Reg_3 r0, r1, r2
+#define ARG_LIST_Reg_3 , r0, r1, r2
 #define ARG_DECL_Reg_4 JitReg r0, JitReg r1, JitReg r2, JitReg r3
-#define ARG_LIST_Reg_4 r0, r1, r2, r3
+#define ARG_LIST_Reg_4 , r0, r1, r2, r3
 #define ARG_DECL_Reg_5 JitReg r0, JitReg r1, JitReg r2, JitReg r3, JitReg r4
-#define ARG_LIST_Reg_5 r0, r1, r2, r3, r4
+#define ARG_LIST_Reg_5 , r0, r1, r2, r3, r4
 #define ARG_DECL_VReg_1 JitReg r0, int n
-#define ARG_LIST_VReg_1 r0, n
+#define ARG_LIST_VReg_1 , r0, n
 #define ARG_DECL_VReg_2 JitReg r0, JitReg r1, int n
-#define ARG_LIST_VReg_2 r0, r1, n
+#define ARG_LIST_VReg_2 , r0, r1, n
 #define ARG_DECL_LookupSwitch_1 JitReg value, uint32 num
-#define ARG_LIST_LookupSwitch_1 value, num
-#define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)             \
-    static inline JitInsn *jit_insn_new_##NAME(                \
-        ARG_DECL_##OPND_KIND##_##OPND_NUM)                     \
-    {                                                          \
-        return _jit_insn_new_##OPND_KIND##_##OPND_NUM(         \
-            JIT_OP_##NAME, ARG_LIST_##OPND_KIND##_##OPND_NUM); \
+#define ARG_LIST_LookupSwitch_1 , value, num
+#define INSN(NAME, OPND_KIND, OPND_NUM, FIRST_USE)            \
+    static inline JitInsn *jit_insn_new_##NAME(               \
+        ARG_DECL_##OPND_KIND##_##OPND_NUM)                    \
+    {                                                         \
+        return _jit_insn_new_##OPND_KIND##_##OPND_NUM(        \
+            JIT_OP_##NAME ARG_LIST_##OPND_KIND##_##OPND_NUM); \
     }
 #include "jit_ir.def"
 #undef INSN
+#undef ARG_DECL_Reg_0
+#undef ARG_LIST_Reg_0
 #undef ARG_DECL_Reg_1
 #undef ARG_LIST_Reg_1
 #undef ARG_DECL_Reg_2
@@ -856,9 +864,10 @@ typedef struct JitValueSlot {
 } JitValueSlot;
 
 typedef struct JitMemRegs {
-    JitReg memory_inst;
     /* The following registers should be re-loaded after
        memory.grow, callbc and callnative */
+    JitReg memory_inst;
+    JitReg cur_page_count;
     JitReg memory_data;
     JitReg memory_data_end;
     JitReg mem_bound_check_1byte;
@@ -869,8 +878,7 @@ typedef struct JitMemRegs {
 } JitMemRegs;
 
 typedef struct JitTableRegs {
-    JitReg table_inst;
-    JitReg table_data;
+    JitReg table_elems;
     /* Should be re-loaded after table.grow,
        callbc and callnative */
     JitReg table_cur_size;
@@ -915,18 +923,12 @@ typedef struct JitFrame {
     JitReg fast_jit_func_ptrs_reg;
     /* module_inst->func_type_indexes */
     JitReg func_type_indexes_reg;
-    /* Base address of global data */
-    JitReg global_data_reg;
     /* Boundary of auxiliary stack */
     JitReg aux_stack_bound_reg;
     /* Bottom of auxiliary stack */
     JitReg aux_stack_bottom_reg;
-    /* Memory instances */
-    JitReg memories_reg;
     /* Data of memory instances */
     JitMemRegs *memory_regs;
-    /* Table instances */
-    JitReg tables_reg;
     /* Data of table instances */
     JitTableRegs *table_regs;
 
@@ -1037,18 +1039,12 @@ typedef struct JitCompContext {
     JitReg fast_jit_func_ptrs_reg;
     /* module_inst->func_type_indexes */
     JitReg func_type_indexes_reg;
-    /* Base address of global data */
-    JitReg global_data_reg;
     /* Boundary of auxiliary stack */
     JitReg aux_stack_bound_reg;
     /* Bottom of auxiliary stack */
     JitReg aux_stack_bottom_reg;
-    /* Memory instances */
-    JitReg memories_reg;
     /* Data of memory instances */
     JitMemRegs *memory_regs;
-    /* Table instances */
-    JitReg tables_reg;
     /* Data of table instances */
     JitTableRegs *table_regs;
 
@@ -1088,7 +1084,7 @@ typedef struct JitCompContext {
         /* Capacity of register annotations of each kind. */
         uint32 _capacity[JIT_REG_KIND_L32];
 
-        /* Constant vallues of each kind. */
+        /* Constant values of each kind. */
         uint8 *_value[JIT_REG_KIND_L32];
 
         /* Next element on the list of values with the same hash code. */
@@ -1149,7 +1145,7 @@ typedef struct JitCompContext {
         JitInsn **_table;
     } _insn_hash_table;
 
-    /* indicate if the last comparision is about floating-point numbers or not
+    /* indicate if the last comparison is about floating-point numbers or not
      */
     bool last_cmp_on_fp;
 } JitCompContext;
@@ -1207,7 +1203,7 @@ typedef struct JitCompContext {
  * Annotation disabling functions jit_annl_disable_NAME,
  * jit_anni_disable_NAME and jit_annr_disable_NAME, which release
  * memory of the annotations.  Before calling these functions,
- * resources owned by the annotations must be explictely released.
+ * resources owned by the annotations must be explicitly released.
  */
 #define ANN_LABEL(TYPE, NAME) void jit_annl_disable_##NAME(JitCompContext *cc);
 #define ANN_INSN(TYPE, NAME) void jit_anni_disable_##NAME(JitCompContext *cc);
@@ -1563,7 +1559,7 @@ _jit_cc_new_insn_norm(JitCompContext *cc, JitReg *result, JitInsn *insn);
  *
  * @param cc the compilationo context
  * @param result returned result of the instruction. If the value is
- * non-zero, it is the result of the constant-folding or an exsiting
+ * non-zero, it is the result of the constant-folding or an existing
  * equivalent instruction, in which case no instruction is added into
  * the compilation context. Otherwise, a new normalized instruction
  * has been added into the compilation context.
@@ -1702,6 +1698,7 @@ jit_cc_is_hreg(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_reg_is_variable(reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return no < cc->hreg_info->info[kind].num;
 }
 
@@ -1719,6 +1716,7 @@ jit_cc_is_hreg_fixed(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].fixed[no];
 }
 
@@ -1736,6 +1734,7 @@ jit_cc_is_hreg_caller_saved_native(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].caller_saved_native[no];
 }
 
@@ -1753,6 +1752,7 @@ jit_cc_is_hreg_caller_saved_jitted(JitCompContext *cc, JitReg reg)
     unsigned kind = jit_reg_kind(reg);
     unsigned no = jit_reg_no(reg);
     bh_assert(jit_cc_is_hreg(cc, reg));
+    bh_assert(kind < JIT_REG_KIND_L32);
     return !!cc->hreg_info->info[kind].caller_saved_jitted[no];
 }
 

@@ -13,6 +13,10 @@
 #include "../aot/aot_runtime.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if WASM_ENABLE_AOT == 0
 typedef enum IntCond {
     INT_EQZ = 0,
@@ -104,27 +108,16 @@ typedef enum FloatArithmetic {
     FLOAT_MAX,
 } FloatArithmetic;
 
-typedef enum JitExceptionID {
-    JIT_EXCE_UNREACHABLE = 0,
-    JIT_EXCE_OUT_OF_MEMORY,
-    JIT_EXCE_OUT_OF_BOUNDS_MEMORY_ACCESS,
-    JIT_EXCE_INTEGER_OVERFLOW,
-    JIT_EXCE_INTEGER_DIVIDE_BY_ZERO,
-    JIT_EXCE_INVALID_CONVERSION_TO_INTEGER,
-    JIT_EXCE_INVALID_FUNCTION_TYPE_INDEX,
-    JIT_EXCE_INVALID_FUNCTION_INDEX,
-    JIT_EXCE_UNDEFINED_ELEMENT,
-    JIT_EXCE_UNINITIALIZED_ELEMENT,
-    JIT_EXCE_CALL_UNLINKED_IMPORT_FUNC,
-    JIT_EXCE_NATIVE_STACK_OVERFLOW,
-    JIT_EXCE_UNALIGNED_ATOMIC,
-    JIT_EXCE_AUX_STACK_OVERFLOW,
-    JIT_EXCE_AUX_STACK_UNDERFLOW,
-    JIT_EXCE_OUT_OF_BOUNDS_TABLE_ACCESS,
-    JIT_EXCE_OPERAND_STACK_OVERFLOW,
-    JIT_EXCE_ALREADY_THROWN,
-    JIT_EXCE_NUM,
-} JitExceptionID;
+#if WASM_ENABLE_SHARED_MEMORY != 0
+typedef enum AtomicRMWBinOp {
+    AtomicRMWBinOpAdd,
+    AtomicRMWBinOpSub,
+    AtomicRMWBinOpAnd,
+    AtomicRMWBinOpOr,
+    AtomicRMWBinOpXor,
+    AtomicRMWBinOpXchg
+} AtomicRMWBinOp;
+#endif
 
 /**
  * Translate instructions in a function. The translated block must
@@ -156,22 +149,6 @@ JitBasicBlock *
 jit_frontend_translate_func(JitCompContext *cc);
 
 /**
- * Generate a block leaving the compiled code, which must store the
- * target bcip and other necessary information for switching to
- * interpreter or other compiled code and then jump to the exit of the
- * cc.
- *
- * @param cc the compilation context
- * @param bcip the target bytecode instruction pointer
- * @param sp_offset stack pointer offset at the beginning of the block
- *
- * @return the leaving block if succeeds, NULL otherwise
- */
-JitBlock *
-jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
-                               unsigned sp_offset);
-
-/**
  * Lower the IR of the given compilation context.
  *
  * @param cc the compilation context
@@ -180,6 +157,19 @@ jit_frontend_gen_leaving_block(JitCompContext *cc, void *bcip,
  */
 bool
 jit_frontend_lower(JitCompContext *cc);
+
+uint32
+jit_frontend_get_jitted_return_addr_offset();
+
+uint32
+jit_frontend_get_global_data_offset(const WASMModule *module,
+                                    uint32 global_idx);
+
+uint32
+jit_frontend_get_table_inst_offset(const WASMModule *module, uint32 tbl_idx);
+
+uint32
+jit_frontend_get_module_inst_extra_offset(const WASMModule *module);
 
 JitReg
 get_module_inst_reg(JitFrame *frame);
@@ -197,19 +187,16 @@ JitReg
 get_func_type_indexes_reg(JitFrame *frame);
 
 JitReg
-get_global_data_reg(JitFrame *frame);
-
-JitReg
 get_aux_stack_bound_reg(JitFrame *frame);
 
 JitReg
 get_aux_stack_bottom_reg(JitFrame *frame);
 
 JitReg
-get_memories_reg(JitFrame *frame);
+get_memory_inst_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg
-get_memory_inst_reg(JitFrame *frame, uint32 mem_idx);
+get_cur_page_count_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg
 get_memory_data_reg(JitFrame *frame, uint32 mem_idx);
@@ -233,13 +220,7 @@ JitReg
 get_mem_bound_check_16bytes_reg(JitFrame *frame, uint32 mem_idx);
 
 JitReg
-get_tables_reg(JitFrame *frame);
-
-JitReg
-get_table_inst_reg(JitFrame *frame, uint32 table_idx);
-
-JitReg
-get_table_data_reg(JitFrame *frame, uint32 table_idx);
+get_table_elems_reg(JitFrame *frame, uint32 table_idx);
 
 JitReg
 get_table_cur_size_reg(JitFrame *frame, uint32 table_idx);
@@ -525,5 +506,9 @@ set_local_f64(JitFrame *frame, int n, JitReg val)
 #define PUSH_F64(v) PUSH(v, VALUE_TYPE_F64)
 #define PUSH_FUNCREF(v) PUSH(v, VALUE_TYPE_FUNCREF)
 #define PUSH_EXTERNREF(v) PUSH(v, VALUE_TYPE_EXTERNREF)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

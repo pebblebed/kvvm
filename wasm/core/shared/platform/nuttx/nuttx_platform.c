@@ -10,6 +10,8 @@
 #include <nuttx/arch.h>
 #endif
 
+#include <nuttx/cache.h>
+
 int
 bh_platform_init()
 {
@@ -38,18 +40,55 @@ os_free(void *ptr)
     free(ptr);
 }
 
-void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+int
+os_dumps_proc_mem_info(char *out, unsigned int size)
 {
+    return -1;
+}
+
+void *
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
+{
+    void *p;
+
 #if defined(CONFIG_ARCH_USE_TEXT_HEAP)
     if ((prot & MMAP_PROT_EXEC) != 0) {
-        return up_textheap_memalign(sizeof(void *), size);
+        p = up_textheap_memalign(sizeof(void *), size);
+        if (p) {
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            void *dp = os_get_dbus_mirror(p);
+            memset(dp, 0, size);
+            os_dcache_flush();
+#else
+            memset(p, 0, size);
+#endif
+        }
+        return p;
     }
 #endif
 
     if ((uint64)size >= UINT32_MAX)
         return NULL;
-    return malloc((uint32)size);
+
+    /* Note: aot_loader.c assumes that os_mmap provides large enough
+     * alignment for any data sections. Some sections like rodata.cst32
+     * actually require alignment larger than the natural alignment
+     * provided by malloc.
+     *
+     * Probably it's cleaner to add an explicit alignment argument to
+     * os_mmap. However, it only makes sense if we change our aot format
+     * to keep the necessary alignment.
+     *
+     * For now, let's assume 32 byte alignment is enough.
+     */
+    if (posix_memalign(&p, 32, size)) {
+        return NULL;
+    }
+
+    /* Zero the memory which is required by os_mmap */
+    memset(p, 0, size);
+
+    return p;
 }
 
 void
@@ -61,7 +100,8 @@ os_munmap(void *addr, size_t size)
         return;
     }
 #endif
-    return free(addr);
+
+    free(addr);
 }
 
 int
@@ -72,7 +112,36 @@ os_mprotect(void *addr, size_t size, int prot)
 
 void
 os_dcache_flush()
-{}
+{
+#if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    up_textheap_data_sync();
+#endif
+#ifndef CONFIG_BUILD_KERNEL
+    up_flush_dcache_all();
+#endif
+}
+
+void
+os_icache_flush(void *start, size_t len)
+{
+#ifndef CONFIG_BUILD_KERNEL
+    up_invalidate_icache((uintptr_t)start, (uintptr_t)start + len);
+#endif
+}
+
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+void *
+os_get_dbus_mirror(void *ibus)
+{
+#if defined(CONFIG_ARCH_USE_TEXT_HEAP) \
+    && defined(CONFIG_ARCH_HAVE_TEXT_HEAP_SEPARATE_DATA_ADDRESS)
+    return up_textheap_data_address(ibus);
+#else
+    return ibus;
+#endif
+}
+#endif
 
 /* If AT_FDCWD is provided, maybe we have openat family */
 #if !defined(AT_FDCWD)
@@ -139,9 +208,115 @@ utimensat(int fd, const char *path, const struct timespec ts[2], int flag)
 
 #endif /* !defined(AT_FDCWD) */
 
-DIR *
-fdopendir(int fd)
+#ifndef CONFIG_NET
+
+#include <netdb.h>
+
+int
+accept(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
 {
-    errno = ENOSYS;
-    return NULL;
+    errno = ENOTSUP;
+    return -1;
 }
+
+int
+bind(int sockfd, FAR const struct sockaddr *addr, socklen_t addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+listen(int sockfd, int backlog)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+connect(int sockfd, FAR const struct sockaddr *addr, socklen_t addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+recvfrom(int sockfd, FAR void *buf, size_t len, int flags,
+         FAR struct sockaddr *from, FAR socklen_t *fromlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+send(int sockfd, FAR const void *buf, size_t len, int flags)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+ssize_t
+sendto(int sockfd, FAR const void *buf, size_t len, int flags,
+       FAR const struct sockaddr *to, socklen_t tolen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+socket(int domain, int type, int protocol)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+shutdown(int sockfd, int how)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getaddrinfo(FAR const char *nodename, FAR const char *servname,
+            FAR const struct addrinfo *hints, FAR struct addrinfo **res)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+void
+freeaddrinfo(FAR struct addrinfo *ai)
+{}
+
+int
+setsockopt(int sockfd, int level, int option, FAR const void *value,
+           socklen_t value_len)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getsockopt(int sockfd, int level, int option, FAR void *value,
+           FAR socklen_t *value_len)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getpeername(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+int
+getsockname(int sockfd, FAR struct sockaddr *addr, FAR socklen_t *addrlen)
+{
+    errno = ENOTSUP;
+    return -1;
+}
+
+#endif

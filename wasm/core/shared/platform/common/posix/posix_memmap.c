@@ -5,6 +5,11 @@
 
 #include "platform_api_vmcore.h"
 
+#if defined(__APPLE__) || defined(__MACH__)
+#include <libkern/OSCacheControl.h>
+#include <TargetConditionals.h>
+#endif
+
 #ifndef BH_ENABLE_TRACE_MMAP
 #define BH_ENABLE_TRACE_MMAP 0
 #endif
@@ -33,10 +38,15 @@ round_down(uintptr_t v, uintptr_t b)
 #endif
 
 void *
-os_mmap(void *hint, size_t size, int prot, int flags)
+os_mmap(void *hint, size_t size, int prot, int flags, os_file_handle file)
 {
     int map_prot = PROT_NONE;
+#if (defined(__APPLE__) || defined(__MACH__)) && defined(__arm64__) \
+    && defined(TARGET_OS_OSX) && TARGET_OS_OSX != 0
+    int map_flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_JIT;
+#else
     int map_flags = MAP_ANONYMOUS | MAP_PRIVATE;
+#endif
     uint64 request_size, page_size;
     uint8 *addr = MAP_FAILED;
     uint32 i;
@@ -51,13 +61,17 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         request_size += HUGE_PAGE_SIZE;
 #endif
 
-    if ((size_t)request_size < size)
-        /* integer overflow */
+    if ((size_t)request_size < size) {
+        os_printf("mmap failed: request size overflow due to paging\n");
         return NULL;
+    }
 
-    if (request_size > 16 * (uint64)UINT32_MAX)
-        /* at most 16 G is allowed */
+#if WASM_ENABLE_MEMORY64 == 0
+    if (request_size > 16 * (uint64)UINT32_MAX) {
+        os_printf("mmap failed: for memory64 at most 64G is allowed\n");
         return NULL;
+    }
+#endif
 
     if (prot & MMAP_PROT_READ)
         map_prot |= PROT_READ;
@@ -106,7 +120,7 @@ os_mmap(void *hint, size_t size, int prot, int flags)
         /* try 10 times, step with 1MB each time */
         for (i = 0; i < 10 && hint_addr < (uint8 *)(uintptr_t)(2ULL * BH_GB);
              i++) {
-            addr = mmap(hint_addr, request_size, map_prot, map_flags, -1, 0);
+            addr = mmap(hint_addr, request_size, map_prot, map_flags, file, 0);
             if (addr != MAP_FAILED) {
                 if (addr > (uint8 *)(uintptr_t)(2ULL * BH_GB)) {
                     /* unmap and try again if the mapped address doesn't
@@ -124,20 +138,27 @@ os_mmap(void *hint, size_t size, int prot, int flags)
     }
 #endif /* end of BUILD_TARGET_RISCV64_LP64D || BUILD_TARGET_RISCV64_LP64 */
 
-    /* memory has't been mapped or was mapped failed previously */
+    /* memory hasn't been mapped or was mapped failed previously */
     if (addr == MAP_FAILED) {
-        /* try 5 times */
-        for (i = 0; i < 5; i++) {
-            addr = mmap(hint, request_size, map_prot, map_flags, -1, 0);
+        /* try 5 times on EAGAIN or ENOMEM, and keep retrying on EINTR */
+        i = 0;
+        while (i < 5) {
+            addr = mmap(hint, request_size, map_prot, map_flags, file, 0);
             if (addr != MAP_FAILED)
                 break;
+            if (errno == EINTR)
+                continue;
+            if (errno != EAGAIN && errno != ENOMEM) {
+                break;
+            }
+            i++;
         }
     }
 
     if (addr == MAP_FAILED) {
-#if BH_ENABLE_TRACE_MMAP != 0
-        os_printf("mmap failed\n");
-#endif
+        os_printf("mmap failed with errno: %d, hint: %p, size: %" PRIu64
+                  ", prot: %d, flags: %d\n",
+                  errno, hint, request_size, map_prot, map_flags);
         return NULL;
     }
 
@@ -226,6 +247,23 @@ os_munmap(void *addr, size_t size)
     }
 }
 
+#if WASM_HAVE_MREMAP != 0
+void *
+os_mremap(void *old_addr, size_t old_size, size_t new_size)
+{
+    void *ptr = mremap(old_addr, old_size, new_size, MREMAP_MAYMOVE);
+
+    if (ptr == MAP_FAILED) {
+#if BH_ENABLE_TRACE_MMAP != 0
+        os_printf("mremap failed: %d\n", errno);
+#endif
+        return os_mremap_slow(old_addr, old_size, new_size);
+    }
+
+    return ptr;
+}
+#endif
+
 int
 os_mprotect(void *addr, size_t size, int prot)
 {
@@ -251,3 +289,14 @@ os_mprotect(void *addr, size_t size, int prot)
 void
 os_dcache_flush(void)
 {}
+
+void
+os_icache_flush(void *start, size_t len)
+{
+#if defined(__APPLE__) || defined(__MACH__)
+    sys_icache_invalidate(start, len);
+#else
+    (void)start;
+    (void)len;
+#endif
+}

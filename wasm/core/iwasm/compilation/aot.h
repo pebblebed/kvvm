@@ -19,12 +19,40 @@ extern "C" {
 #define AOT_FUNC_PREFIX "aot_func#"
 #endif
 
+#ifndef AOT_FUNC_INTERNAL_PREFIX
+#define AOT_FUNC_INTERNAL_PREFIX "aot_func_internal#"
+#endif
+
+#ifndef AOT_STACK_SIZES_NAME
+#define AOT_STACK_SIZES_NAME "aot_stack_sizes"
+#endif
+extern const char *aot_stack_sizes_name;
+
+#ifndef AOT_STACK_SIZES_ALIAS_NAME
+#define AOT_STACK_SIZES_ALIAS_NAME "aot_stack_sizes_alias"
+#endif
+extern const char *aot_stack_sizes_alias_name;
+
+#ifndef AOT_STACK_SIZES_SECTION_NAME
+#define AOT_STACK_SIZES_SECTION_NAME ".aot_stack_sizes"
+#endif
+extern const char *aot_stack_sizes_section_name;
+
 typedef InitializerExpression AOTInitExpr;
-typedef WASMType AOTFuncType;
+typedef WASMType AOTType;
+typedef WASMFuncType AOTFuncType;
+#if WASM_ENABLE_GC != 0
+typedef WASMStructType AOTStructType;
+typedef WASMArrayType AOTArrayType;
+#endif
 typedef WASMExport AOTExport;
+typedef WASMMemory AOTMemory;
+typedef WASMMemoryType AOTMemoryType;
+typedef WASMTableType AOTTableType;
+typedef WASMTable AOTTable;
 
 #if WASM_ENABLE_DEBUG_AOT != 0
-typedef void *dwar_extractor_handle_t;
+typedef void *dwarf_extractor_handle_t;
 #endif
 
 typedef enum AOTIntCond {
@@ -57,22 +85,8 @@ typedef enum AOTFloatCond {
 typedef struct AOTImportMemory {
     char *module_name;
     char *memory_name;
-    uint32 memory_flags;
-    uint32 num_bytes_per_page;
-    uint32 mem_init_page_count;
-    uint32 mem_max_page_count;
+    AOTMemoryType mem_type;
 } AOTImportMemory;
-
-/**
- * Memory information
- */
-typedef struct AOTMemory {
-    /* memory info */
-    uint32 memory_flags;
-    uint32 num_bytes_per_page;
-    uint32 mem_init_page_count;
-    uint32 mem_max_page_count;
-} AOTMemory;
 
 /**
  * A segment of memory init data
@@ -89,7 +103,7 @@ typedef struct AOTMemInitData {
     /* Byte count */
     uint32 byte_count;
     /* Byte array */
-    uint8 bytes[1];
+    uint8 *bytes;
 } AOTMemInitData;
 
 /**
@@ -98,23 +112,8 @@ typedef struct AOTMemInitData {
 typedef struct AOTImportTable {
     char *module_name;
     char *table_name;
-    uint32 elem_type;
-    uint32 table_flags;
-    uint32 table_init_size;
-    uint32 table_max_size;
-    bool possible_grow;
+    AOTTableType table_type;
 } AOTImportTable;
-
-/**
- * Table
- */
-typedef struct AOTTable {
-    uint32 elem_type;
-    uint32 table_flags;
-    uint32 table_init_size;
-    uint32 table_max_size;
-    bool possible_grow;
-} AOTTable;
 
 /**
  * A segment of table init data
@@ -124,15 +123,17 @@ typedef struct AOTTableInitData {
     uint32 mode;
     /* funcref or externref, elemkind will be considered as funcref */
     uint32 elem_type;
-    bool is_dropped;
+#if WASM_ENABLE_GC != 0
+    WASMRefType *elem_ref_type;
+#endif
     /* optional, only for active */
     uint32 table_index;
     /* Start address of init data */
     AOTInitExpr offset;
     /* Function index count */
-    uint32 func_index_count;
+    uint32 value_count;
     /* Function index array */
-    uint32 func_indexes[1];
+    InitializerExpression init_values[1];
 } AOTTableInitData;
 
 /**
@@ -141,26 +142,43 @@ typedef struct AOTTableInitData {
 typedef struct AOTImportGlobal {
     char *module_name;
     char *global_name;
-    /* VALUE_TYPE_I32/I64/F32/F64 */
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
     uint32 size;
     /* The data offset of current global in global data */
     uint32 data_offset;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    /*
+     * The data size and data offset of a wasm global may vary
+     * in 32-bit target and 64-bit target, e.g., the size of a
+     * GC obj is 4 bytes in the former and 8 bytes in the
+     * latter, the AOT compiler needs to use the correct data
+     * offset according to the target info.
+     */
+    uint32 size_64bit;
+    uint32 size_32bit;
+    uint32 data_offset_64bit;
+    uint32 data_offset_32bit;
+#endif
     /* global data after linked */
     WASMValue global_data_linked;
+    bool is_linked;
 } AOTImportGlobal;
 
 /**
  * Global variable
  */
 typedef struct AOTGlobal {
-    /* VALUE_TYPE_I32/I64/F32/F64 */
-    uint8 type;
-    bool is_mutable;
+    WASMGlobalType type;
     uint32 size;
     /* The data offset of current global in global data */
     uint32 data_offset;
+#if WASM_ENABLE_WAMR_COMPILER != 0 || WASM_ENABLE_JIT != 0
+    /* See comments in AOTImportGlobal */
+    uint32 size_64bit;
+    uint32 size_32bit;
+    uint32 data_offset_64bit;
+    uint32 data_offset_32bit;
+#endif
     AOTInitExpr init_expr;
 } AOTGlobal;
 
@@ -190,11 +208,15 @@ typedef struct AOTFunc {
     AOTFuncType *func_type;
     uint32 func_type_index;
     uint32 local_count;
-    uint8 *local_types;
+    uint8 *local_types_wp;
     uint16 param_cell_num;
     uint16 local_cell_num;
+    uint32 max_stack_cell_num;
     uint32 code_size;
     uint8 *code;
+    /* offset of each local, including function parameters
+       and local variables */
+    uint16 *local_offsets;
 } AOTFunc;
 
 typedef struct AOTCompData {
@@ -231,8 +253,8 @@ typedef struct AOTCompData {
     AOTGlobal *globals;
 
     /* Function types */
-    uint32 func_type_count;
-    AOTFuncType **func_types;
+    uint32 type_count;
+    AOTType **types;
 
     /* Import functions */
     uint32 import_func_count;
@@ -248,7 +270,8 @@ typedef struct AOTCompData {
     uint8 *aot_name_section_buf;
     uint32 aot_name_section_size;
 
-    uint32 global_data_size;
+    uint32 global_data_size_64bit;
+    uint32 global_data_size_32bit;
 
     uint32 start_func_index;
     uint32 malloc_func_index;
@@ -256,33 +279,40 @@ typedef struct AOTCompData {
     uint32 retain_func_index;
 
     uint32 aux_data_end_global_index;
-    uint32 aux_data_end;
+    uint64 aux_data_end;
     uint32 aux_heap_base_global_index;
-    uint32 aux_heap_base;
+    uint64 aux_heap_base;
     uint32 aux_stack_top_global_index;
-    uint32 aux_stack_bottom;
+    uint64 aux_stack_bottom;
     uint32 aux_stack_size;
+
+#if WASM_ENABLE_STRINGREF != 0
+    uint32 string_literal_count;
+    uint32 *string_literal_lengths_wp;
+    const uint8 **string_literal_ptrs_wp;
+#endif
 
     WASMModule *wasm_module;
 #if WASM_ENABLE_DEBUG_AOT != 0
-    dwar_extractor_handle_t extractor;
+    dwarf_extractor_handle_t extractor;
 #endif
 } AOTCompData;
 
 typedef struct AOTNativeSymbol {
     bh_list_link link;
-    char symbol[32];
+    char symbol[48];
     int32 index;
 } AOTNativeSymbol;
 
 AOTCompData *
-aot_create_comp_data(WASMModule *module);
+aot_create_comp_data(WASMModule *module, const char *target_arch,
+                     bool gc_enabled);
 
 void
 aot_destroy_comp_data(AOTCompData *comp_data);
 
 char *
-aot_get_last_error();
+aot_get_last_error(void);
 
 void
 aot_set_last_error(const char *error);
@@ -304,15 +334,29 @@ aot_set_last_error_v(const char *format, ...);
 #endif
 
 static inline uint32
-aot_get_tbl_data_slots(const AOTTable *tbl)
+aot_get_imp_tbl_data_slots(const AOTImportTable *tbl, bool is_jit_mode)
 {
-    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (is_jit_mode)
+        return tbl->table_type.max_size;
+#else
+    (void)is_jit_mode;
+#endif
+    return tbl->table_type.possible_grow ? tbl->table_type.max_size
+                                         : tbl->table_type.init_size;
 }
 
 static inline uint32
-aot_get_imp_tbl_data_slots(const AOTImportTable *tbl)
+aot_get_tbl_data_slots(const AOTTable *tbl, bool is_jit_mode)
 {
-    return tbl->possible_grow ? tbl->table_max_size : tbl->table_init_size;
+#if WASM_ENABLE_MULTI_MODULE != 0
+    if (is_jit_mode)
+        return tbl->table_type.max_size;
+#else
+    (void)is_jit_mode;
+#endif
+    return tbl->table_type.possible_grow ? tbl->table_type.max_size
+                                         : tbl->table_type.init_size;
 }
 
 #ifdef __cplusplus

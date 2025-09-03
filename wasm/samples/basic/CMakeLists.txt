@@ -1,13 +1,14 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project (basic)
 else()
   project (basic C ASM)
-  enable_language (ASM_MASM)
 endif()
 
 ################  runtime settings  ################
@@ -56,7 +57,6 @@ endif ()
 
 if (NOT MSVC)
   # linker flags
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
   endif ()
@@ -79,9 +79,16 @@ include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable (basic src/main.c src/native_impl.c ${UNCOMMON_SHARED_SOURCE})
+add_executable (free_buffer_early src/free_buffer_early.c ${UNCOMMON_SHARED_SOURCE})
+
+check_pie_supported()
+set_target_properties (basic PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties (free_buffer_early PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (APPLE)
   target_link_libraries (basic vmlib -lm -ldl -lpthread)
+  target_link_libraries (free_buffer_early vmlib -lm -ldl -lpthread)
 else ()
   target_link_libraries (basic vmlib -lm -ldl -lpthread -lrt)
+  target_link_libraries (free_buffer_early vmlib -lm -ldl -lpthread -lrt)
 endif ()

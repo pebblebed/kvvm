@@ -3,10 +3,16 @@
 ### An integrated development environment for WASM.
 
 # How to debug this extension
-
-> Note that please build `lldb` firstly follow this
-> [instruction](./resource/debug/README.md) if you want to enable
-> `source debugging` feature of this extension
+> Note that when you download and
+> decompress to get .vsix file from [our release](https://github.com/bytecodealliance/wasm-micro-runtime/releases).
+> It's by default that the `source debugging` feature is not enabled.
+> If you want to enable the `source debugging` feature of this extension,
+> you could  download `lldb` from [our release](https://github.com/bytecodealliance/wasm-micro-runtime/releases)
+> (This is the recommended way, and you could do it with a single click in VS Code).
+> Then if you want to use your customized lldb patch,
+> you could build your own version of `lldb`
+> and then follow this [instruction](./resource/debug/README.md)
+> to put them in the correct path
 
 ### 1. open `VSCode_Extension` directory with the `vscode`
 

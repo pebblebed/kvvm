@@ -1,13 +1,14 @@
 # Copyright (C) 2019 Intel Corporation. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required (VERSION 2.9)
+cmake_minimum_required (VERSION 3.14)
+
+include(CheckPIESupported)
 
 if (NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   project(ref-types)
 else()
   project (ref-types C ASM)
-  enable_language (ASM_MASM)
 endif()
 
 ################  runtime settings  ################
@@ -70,7 +71,6 @@ set(WAMR_BUILD_REF_TYPES 1)
 
 if (NOT MSVC)
   # compiling and linking flags
-  set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
   if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
   endif ()
@@ -101,11 +101,23 @@ find_program(WAT2WASM
 
 if(NOT WAT2WASM)
   message(SEND_ERROR "can not find wat2wasm")
+else ()
+  execute_process(COMMAND ${WAT2WASM} --version
+                  OUTPUT_VARIABLE WAT2WASM_VERSION_OUTPUT)
+  string(STRIP ${WAT2WASM_VERSION_OUTPUT} WAT2WASM_VERSION)
+  message("-- Found wat2wasm ${WAT2WASM_VERSION}")
 endif()
+
+if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
+  set(WAT2WASM_FLAGS "--enable-reference-types")
+endif ()
 
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 add_executable(hello src/hello.c ${UNCOMMON_SHARED_SOURCE})
+
+check_pie_supported()
+set_target_properties (hello PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(hello PRIVATE ${UNCOMMON_SHARED_DIR})
 
@@ -118,7 +130,7 @@ endif()
 # wat to wasm
 file(GLOB WAT_FILE src/hello.wat)
 add_custom_target(hello_wasm ALL
-  COMMAND ${WAT2WASM} ${WAT_FILE} --enable-reference-types -o ${PROJECT_BINARY_DIR}/hello.wasm
+  COMMAND ${WAT2WASM} ${WAT_FILE} ${WAT2WASM_FLAGS} -o ${PROJECT_BINARY_DIR}/hello.wasm
   DEPENDS ${WAT_FILE}
   BYPRODUCTS ${PROJECT_BINARY_DIR}/hello.wasm
   VERBATIM

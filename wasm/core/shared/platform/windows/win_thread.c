@@ -37,6 +37,8 @@ typedef struct os_thread_data {
     korp_mutex wait_lock;
     /* Waiting list of other threads who are joining this thread */
     os_thread_wait_list thread_wait_list;
+    /* End node of the waiting list */
+    os_thread_wait_node *thread_wait_list_end;
     /* Whether the thread has exited */
     bool thread_exited;
     /* Thread return value */
@@ -68,6 +70,63 @@ int
 os_sem_reltimed_wait(korp_sem *sem, uint64 useconds);
 int
 os_sem_signal(korp_sem *sem);
+
+static void
+thread_data_list_add(os_thread_data *thread_data)
+{
+    os_mutex_lock(&thread_data_list_lock);
+    /* If already in list, just return */
+    os_thread_data *p = &supervisor_thread_data;
+    while (p) {
+        if (p == thread_data) {
+            os_mutex_unlock(&thread_data_list_lock);
+            return;
+        }
+        p = p->next;
+    }
+    thread_data->next = supervisor_thread_data.next;
+    supervisor_thread_data.next = thread_data;
+    os_mutex_unlock(&thread_data_list_lock);
+}
+
+static void
+thread_data_list_remove(os_thread_data *thread_data)
+{
+    os_mutex_lock(&thread_data_list_lock);
+    /* Search and remove it from list */
+    os_thread_data *p = &supervisor_thread_data;
+    while (p && p->next != thread_data)
+        p = p->next;
+
+    if (p && p->next) {
+        bh_assert(p->next == thread_data);
+        p->next = p->next->next;
+        /* Release the resources in thread_data */
+        os_cond_destroy(&thread_data->wait_cond);
+        os_mutex_destroy(&thread_data->wait_lock);
+        os_sem_destroy(&thread_data->wait_node.sem);
+        BH_FREE(thread_data);
+    }
+    os_mutex_unlock(&thread_data_list_lock);
+}
+
+static os_thread_data *
+thread_data_list_lookup(korp_tid tid)
+{
+    os_thread_data *thread_data = (os_thread_data *)tid;
+    os_mutex_lock(&thread_data_list_lock);
+    os_thread_data *p = supervisor_thread_data.next;
+    while (p) {
+        if (p == thread_data) {
+            /* Found */
+            os_mutex_unlock(&thread_data_list_lock);
+            return p;
+        }
+        p = p->next;
+    }
+    os_mutex_unlock(&thread_data_list_lock);
+    return NULL;
+}
 
 int
 os_thread_sys_init()
@@ -174,7 +233,8 @@ os_thread_cleanup(void *retval)
             os_sem_signal(&head->sem);
             head = next;
         }
-        thread_data->thread_wait_list = NULL;
+        thread_data->thread_wait_list = thread_data->thread_wait_list_end =
+            NULL;
     }
     /* Set thread status and thread return value */
     thread_data->thread_exited = true;
@@ -251,10 +311,7 @@ os_thread_create_with_prio(korp_tid *p_tid, thread_start_routine_t start,
     }
 
     /* Add thread data into thread data list */
-    os_mutex_lock(&thread_data_list_lock);
-    thread_data->next = supervisor_thread_data.next;
-    supervisor_thread_data.next = thread_data;
-    os_mutex_unlock(&thread_data_list_lock);
+    thread_data_list_add(thread_data);
 
     /* Wait for the thread routine to set thread_data's tid
        and add thread_data to thread data list */
@@ -299,8 +356,12 @@ os_thread_join(korp_tid thread, void **p_retval)
     curr_thread_data->wait_node.next = NULL;
 
     /* Get thread data of thread to join */
-    thread_data = (os_thread_data *)thread;
-    bh_assert(thread_data);
+    thread_data = thread_data_list_lookup(thread);
+
+    if (thread_data == NULL) {
+        os_printf("Can't join thread %p, it does not exist", thread);
+        return BHT_ERROR;
+    }
 
     os_mutex_lock(&thread_data->wait_lock);
 
@@ -309,18 +370,19 @@ os_thread_join(korp_tid thread, void **p_retval)
         if (p_retval)
             *p_retval = thread_data->thread_retval;
         os_mutex_unlock(&thread_data->wait_lock);
+        thread_data_list_remove(thread_data);
         return BHT_OK;
     }
 
     /* Thread is running */
-    if (!thread_data->thread_wait_list)
-        thread_data->thread_wait_list = &curr_thread_data->wait_node;
-    else {
+    if (!thread_data->thread_wait_list) { /* Waiting list is empty */
+        thread_data->thread_wait_list = thread_data->thread_wait_list_end =
+            &curr_thread_data->wait_node;
+    }
+    else { /* Waiting list isn't empty */
         /* Add to end of waiting list */
-        os_thread_wait_node *p = thread_data->thread_wait_list;
-        while (p->next)
-            p = p->next;
-        p->next = &curr_thread_data->wait_node;
+        thread_data->thread_wait_list_end->next = &curr_thread_data->wait_node;
+        thread_data->thread_wait_list_end = &curr_thread_data->wait_node;
     }
 
     os_mutex_unlock(&thread_data->wait_lock);
@@ -329,6 +391,7 @@ os_thread_join(korp_tid thread, void **p_retval)
     os_sem_wait(&curr_thread_data->wait_node.sem);
     if (p_retval)
         *p_retval = curr_thread_data->wait_node.retval;
+    thread_data_list_remove(thread_data);
     return BHT_OK;
 }
 
@@ -512,6 +575,21 @@ os_mutex_lock(korp_mutex *mutex)
     int ret;
 
     assert(mutex);
+
+    if (*mutex == NULL) { /* static initializer? */
+        HANDLE p = CreateMutex(NULL, FALSE, NULL);
+
+        if (!p) {
+            return BHT_ERROR;
+        }
+
+        if (InterlockedCompareExchangePointer((PVOID *)mutex, (PVOID)p, NULL)
+            != NULL) {
+            /* lock has been created by other threads */
+            CloseHandle(p);
+        }
+    }
+
     ret = WaitForSingleObject(*mutex, INFINITE);
     return ret != WAIT_FAILED ? BHT_OK : BHT_ERROR;
 }
@@ -524,13 +602,69 @@ os_mutex_unlock(korp_mutex *mutex)
 }
 
 int
+os_rwlock_init(korp_rwlock *lock)
+{
+    bh_assert(lock);
+
+    InitializeSRWLock(&(lock->lock));
+    lock->exclusive = false;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_rdlock(korp_rwlock *lock)
+{
+    bh_assert(lock);
+
+    AcquireSRWLockShared(&(lock->lock));
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_wrlock(korp_rwlock *lock)
+{
+    bh_assert(lock);
+
+    AcquireSRWLockExclusive(&(lock->lock));
+    lock->exclusive = true;
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_unlock(korp_rwlock *lock)
+{
+    bh_assert(lock);
+
+    if (lock->exclusive) {
+        lock->exclusive = false;
+        ReleaseSRWLockExclusive(&(lock->lock));
+    }
+    else {
+        ReleaseSRWLockShared(&(lock->lock));
+    }
+
+    return BHT_OK;
+}
+
+int
+os_rwlock_destroy(korp_rwlock *lock)
+{
+    (void)lock;
+
+    return BHT_OK;
+}
+
+int
 os_cond_init(korp_cond *cond)
 {
     bh_assert(cond);
     if (os_mutex_init(&cond->wait_list_lock) != BHT_OK)
         return BHT_ERROR;
 
-    cond->thread_wait_list = NULL;
+    cond->thread_wait_list = cond->thread_wait_list_end = NULL;
     return BHT_OK;
 }
 
@@ -553,14 +687,13 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
     bh_assert(cond);
     bh_assert(mutex);
     os_mutex_lock(&cond->wait_list_lock);
-    if (!cond->thread_wait_list)
-        cond->thread_wait_list = node;
-    else {
+    if (!cond->thread_wait_list) { /* Waiting list is empty */
+        cond->thread_wait_list = cond->thread_wait_list_end = node;
+    }
+    else { /* Waiting list isn't empty */
         /* Add to end of wait list */
-        os_thread_wait_node *p = cond->thread_wait_list;
-        while (p->next)
-            p = p->next;
-        p->next = node;
+        cond->thread_wait_list_end->next = node;
+        cond->thread_wait_list_end = node;
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
@@ -575,14 +708,24 @@ os_cond_wait_internal(korp_cond *cond, korp_mutex *mutex, bool timed,
 
     /* Remove wait node from wait list */
     os_mutex_lock(&cond->wait_list_lock);
-    if (cond->thread_wait_list == node)
+    if (cond->thread_wait_list == node) {
         cond->thread_wait_list = node->next;
+
+        if (cond->thread_wait_list_end == node) {
+            bh_assert(node->next == NULL);
+            cond->thread_wait_list_end = NULL;
+        }
+    }
     else {
         /* Remove from the wait list */
         os_thread_wait_node *p = cond->thread_wait_list;
         while (p->next != node)
             p = p->next;
         p->next = node->next;
+
+        if (cond->thread_wait_list_end == node) {
+            cond->thread_wait_list_end = p;
+        }
     }
     os_mutex_unlock(&cond->wait_list_lock);
 
@@ -685,19 +828,29 @@ os_thread_get_stack_boundary()
     return thread_stack_boundary;
 }
 
+void
+os_thread_jit_write_protect_np(bool enabled)
+{}
+
 #ifdef OS_ENABLE_HW_BOUND_CHECK
 static os_thread_local_attribute bool thread_signal_inited = false;
 
 int
 os_thread_signal_init()
 {
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     ULONG StackSizeInBytes = 16 * 1024;
+#endif
     bool ret;
 
     if (thread_signal_inited)
         return 0;
 
+#if WASM_DISABLE_STACK_HW_BOUND_CHECK == 0
     ret = SetThreadStackGuarantee(&StackSizeInBytes);
+#else
+    ret = true;
+#endif
     if (ret)
         thread_signal_inited = true;
     return ret ? 0 : -1;

@@ -2,7 +2,7 @@
 # Copyright (C) 2020 TU Bergakademie Freiberg Karl Fessel
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 3.8.2)
+cmake_minimum_required(VERSION 3.14)
 
 set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
 
@@ -45,6 +45,11 @@ if (NOT DEFINED WAMR_ROOT_DIR)
   set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
+# Override the global heap size for small devices
+if (NOT DEFINED  WAMR_BUILD_GLOBAL_HEAP_SIZE)
+  add_definitions (-DWASM_GLOBAL_HEAP_SIZE=262144) # 256 kB
+endif ()
+
 
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
@@ -57,3 +62,5 @@ include_directories(SYSTEM ${RIOT_INCLUDES_LIST})
 # executable linking is done by RIOT build system
 
 add_library( wamr ${WAMR_RUNTIME_LIB_SOURCE})
+
+set_version_info (wamr)

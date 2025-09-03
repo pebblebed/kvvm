@@ -34,10 +34,11 @@ static const struct packet_handler_elem packet_handler_table[255] = {
     DEL_HANDLER('c', handle_continue_request),
     DEL_HANDLER('k', handle_kill_request),
     DEL_HANDLER('_', handle____request),
+    DEL_HANDLER('D', handle_detach_request),
 };
 
 WASMGDBServer *
-wasm_create_gdbserver(const char *host, int32 *port)
+wasm_create_gdbserver(const char *host, int *port)
 {
     bh_socket_t listen_fd = (bh_socket_t)-1;
     WASMGDBServer *server;
@@ -59,7 +60,7 @@ wasm_create_gdbserver(const char *host, int32 *port)
 
     memset(server->receive_ctx, 0, sizeof(rsp_recv_context_t));
 
-    if (0 != os_socket_create(&listen_fd, 1)) {
+    if (0 != os_socket_create(&listen_fd, true, true)) {
         LOG_ERROR("wasm gdb server error: create socket failed");
         goto fail;
     }
@@ -89,7 +90,6 @@ fail:
 bool
 wasm_gdbserver_listen(WASMGDBServer *server)
 {
-    bh_socket_t sockt_fd = (bh_socket_t)-1;
     int32 ret;
 
     ret = os_socket_listen(server->listen_fd, 1);
@@ -97,6 +97,23 @@ wasm_gdbserver_listen(WASMGDBServer *server)
         LOG_ERROR("wasm gdb server error: socket listen failed");
         goto fail;
     }
+
+    LOG_VERBOSE("listen for gdb client");
+    return true;
+
+fail:
+    os_socket_shutdown(server->listen_fd);
+    os_socket_close(server->listen_fd);
+    return false;
+}
+
+bool
+wasm_gdbserver_accept(WASMGDBServer *server)
+{
+
+    bh_socket_t sockt_fd = (bh_socket_t)-1;
+
+    LOG_VERBOSE("waiting for gdb client to connect...");
 
     os_socket_accept(server->listen_fd, &sockt_fd, NULL, NULL);
     if (sockt_fd < 0) {
@@ -113,6 +130,15 @@ fail:
     os_socket_shutdown(server->listen_fd);
     os_socket_close(server->listen_fd);
     return false;
+}
+
+void
+wasm_gdbserver_detach(WASMGDBServer *server)
+{
+    if (server->socket_fd > 0) {
+        os_socket_shutdown(server->socket_fd);
+        os_socket_close(server->socket_fd);
+    }
 }
 
 void
@@ -263,8 +289,9 @@ wasm_gdbserver_handle_packet(WASMGDBServer *server)
     n = os_socket_recv(server->socket_fd, buf, sizeof(buf));
 
     if (n == 0) {
-        LOG_VERBOSE("Debugger disconnected");
-        return false;
+        handle_detach_request(server, NULL);
+        LOG_VERBOSE("Debugger disconnected, waiting for debugger reconnection");
+        return true;
     }
     else if (n < 0) {
 #if defined(BH_PLATFORM_WINDOWS)

@@ -9,10 +9,10 @@
 #include "gdbserver.h"
 
 int
-wasm_debug_handler_init();
+wasm_debug_handler_init(void);
 
 void
-wasm_debug_handler_deinit();
+wasm_debug_handler_deinit(void);
 
 void
 handle_interrupt(WASMGDBServer *server);
@@ -61,6 +61,9 @@ handle_kill_request(WASMGDBServer *server, char *payload);
 
 void
 handle____request(WASMGDBServer *server, char *payload);
+
+void
+handle_detach_request(WASMGDBServer *server, char *payload);
 
 void
 send_thread_stop_status(WASMGDBServer *server, uint32 status, korp_tid tid);

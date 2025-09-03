@@ -282,7 +282,7 @@ os_thread_join(korp_tid thread, void **value_ptr)
     mutex_unlock(&thread_data->wait_list_lock);
 
     sema_wait(&node.sem);
-    // get the return value pointer conted may not be availible after return
+    // get the return value pointer conted may not be available after return
     if (value_ptr)
         (*value_ptr) = node.ret;
     /* Wait some time for the thread to be actually terminated */
@@ -430,3 +430,7 @@ os_thread_get_stack_boundary()
     return NULL;
 #endif
 }
+
+void
+os_thread_jit_write_protect_np(bool enabled)
+{}

@@ -16,6 +16,7 @@
 
 #include "bh_platform.h"
 #include "locking.h"
+#include "gnuc.h"
 
 #define PRODUCES(...) LOCKS_SHARED(__VA_ARGS__) NO_LOCK_ANALYSIS
 #define CONSUMES(...) UNLOCKS(__VA_ARGS__) NO_LOCK_ANALYSIS
@@ -93,6 +94,71 @@ refcount_release(struct refcount *r)
     sgx_spin_unlock(&r->lock);
     bh_assert(old != 0 && "Reference count becoming negative");
     return old == 1;
+}
+
+#elif defined(__GNUC_PREREQ)
+
+#if __GNUC_PREREQ(4, 7)
+
+struct refcount {
+    unsigned int count;
+};
+
+/* Initialize the reference counter. */
+static inline void
+refcount_init(struct refcount *r, unsigned int count)
+{
+    __atomic_store_n(&r->count, count, __ATOMIC_SEQ_CST);
+}
+
+/* Increment the reference counter. */
+static inline void
+refcount_acquire(struct refcount *r)
+{
+    __atomic_fetch_add(&r->count, 1, __ATOMIC_ACQUIRE);
+}
+
+/* Decrement the reference counter, returning whether the reference
+   dropped to zero. */
+static inline bool
+refcount_release(struct refcount *r)
+{
+    int old = (int)__atomic_fetch_sub(&r->count, 1, __ATOMIC_RELEASE);
+    bh_assert(old != 0 && "Reference count becoming negative");
+    return old == 1;
+}
+
+#else /* else of __GNUC_PREREQ (4.7) */
+#error "Reference counter isn't implemented"
+#endif /* end of __GNUC_PREREQ (4.7) */
+
+#elif defined(_MSC_VER)
+
+/* Simple reference counter. */
+struct LOCKABLE refcount {
+    LONG count;
+};
+
+/* Initialize the reference counter. */
+static inline void
+refcount_init(struct refcount *r, unsigned int count)
+{
+    InterlockedExchange(&r->count, (LONG)count);
+}
+
+/* Increment the reference counter. */
+static inline void
+refcount_acquire(struct refcount *r)
+{
+    InterlockedIncrement(&r->count);
+}
+
+/* Decrement the reference counter, returning whether the reference
+   dropped to zero. */
+static inline bool
+refcount_release(struct refcount *r)
+{
+    return InterlockedDecrement(&r->count) == 0 ? true : false;
 }
 
 #else /* else of CONFIG_HAS_STD_ATOMIC */

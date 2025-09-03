@@ -20,11 +20,10 @@ typedef enum WASMOpcode {
     WASM_OP_LOOP = 0x03,        /* loop */
     WASM_OP_IF = 0x04,          /* if */
     WASM_OP_ELSE = 0x05,        /* else */
-
-    WASM_OP_UNUSED_0x06 = 0x06,
-    WASM_OP_UNUSED_0x07 = 0x07,
-    WASM_OP_UNUSED_0x08 = 0x08,
-    WASM_OP_UNUSED_0x09 = 0x09,
+    WASM_OP_TRY = 0x06,         /* try */
+    WASM_OP_CATCH = 0x07,       /* catch* */
+    WASM_OP_THROW = 0x08,       /* throw of a try catch */
+    WASM_OP_RETHROW = 0x09,     /* rethrow of a try catch */
     WASM_OP_UNUSED_0x0a = 0x0a,
 
     WASM_OP_END = 0x0b,                  /* end */
@@ -36,13 +35,14 @@ typedef enum WASMOpcode {
     WASM_OP_CALL_INDIRECT = 0x11,        /* call_indirect */
     WASM_OP_RETURN_CALL = 0x12,          /* return_call */
     WASM_OP_RETURN_CALL_INDIRECT = 0x13, /* return_call_indirect */
+    WASM_OP_CALL_REF = 0x14,             /* call_ref */
+    WASM_OP_RETURN_CALL_REF = 0x15,      /* return_call_ref */
 
-    WASM_OP_UNUSED_0x14 = 0x14,
-    WASM_OP_UNUSED_0x15 = 0x15,
     WASM_OP_UNUSED_0x16 = 0x16,
     WASM_OP_UNUSED_0x17 = 0x17,
-    WASM_OP_UNUSED_0x18 = 0x18,
-    WASM_OP_UNUSED_0x19 = 0x19,
+
+    WASM_OP_DELEGATE = 0x18,  /* delegate block of the try catch*/
+    WASM_OP_CATCH_ALL = 0x19, /* a catch_all handler in a try block */
 
     /* parametric instructions */
     WASM_OP_DROP = 0x1a,     /* drop */
@@ -86,7 +86,7 @@ typedef enum WASMOpcode {
     WASM_OP_I32_STORE8 = 0x3a,   /* i32.store8 */
     WASM_OP_I32_STORE16 = 0x3b,  /* i32.store16 */
     WASM_OP_I64_STORE8 = 0x3c,   /* i64.store8 */
-    WASM_OP_I64_STORE16 = 0x3d,  /* i64.sotre16 */
+    WASM_OP_I64_STORE16 = 0x3d,  /* i64.store16 */
     WASM_OP_I64_STORE32 = 0x3e,  /* i64.store32 */
     WASM_OP_MEMORY_SIZE = 0x3f,  /* memory.size */
     WASM_OP_MEMORY_GROW = 0x40,  /* memory.grow */
@@ -259,24 +259,132 @@ typedef enum WASMOpcode {
 
     WASM_OP_IMPDEP = 0xcf,
 
-    WASM_OP_REF_NULL = 0xd0,    /* ref.null */
-    WASM_OP_REF_IS_NULL = 0xd1, /* ref.is_null */
-    WASM_OP_REF_FUNC = 0xd2,    /* ref.func */
+    WASM_OP_REF_NULL = 0xd0,        /* ref.null */
+    WASM_OP_REF_IS_NULL = 0xd1,     /* ref.is_null */
+    WASM_OP_REF_FUNC = 0xd2,        /* ref.func */
+    WASM_OP_REF_EQ = 0xd3,          /* ref.eq */
+    WASM_OP_REF_AS_NON_NULL = 0xd4, /* ref.as_non_null */
+    WASM_OP_BR_ON_NULL = 0xd5,      /* br_on_null */
+    WASM_OP_BR_ON_NON_NULL = 0xd6,  /* br_on_non_null */
 
-    EXT_OP_BLOCK = 0xd3,          /* block with blocktype */
-    EXT_OP_LOOP = 0xd4,           /* loop with blocktype */
-    EXT_OP_IF = 0xd5,             /* if with blocktype */
-    EXT_OP_BR_TABLE_CACHE = 0xd6, /* br_table from cache */
+    EXT_OP_BLOCK = 0xd7,          /* block with blocktype */
+    EXT_OP_LOOP = 0xd8,           /* loop with blocktype */
+    EXT_OP_IF = 0xd9,             /* if with blocktype */
+    EXT_OP_BR_TABLE_CACHE = 0xda, /* br_table from cache */
+
+    EXT_OP_TRY = 0xdb, /* try block with blocktype */
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-    DEBUG_OP_BREAK = 0xd7, /* debug break point */
+    DEBUG_OP_BREAK = 0xdc, /* debug break point */
+#endif
+
+#if WASM_ENABLE_SIMDE != 0
+    EXT_OP_SET_LOCAL_FAST_V128 = 0xdd,
+    EXT_OP_TEE_LOCAL_FAST_V128 = 0xde,
+    EXT_OP_COPY_STACK_TOP_V128 = 0xdf,
+    WASM_OP_GET_GLOBAL_V128 = 0xe0,
+    WASM_OP_SET_GLOBAL_V128 = 0xe1,
+    WASM_OP_SELECT_128 = 0xe2,
 #endif
 
     /* Post-MVP extend op prefix */
+    WASM_OP_GC_PREFIX = 0xfb,
     WASM_OP_MISC_PREFIX = 0xfc,
     WASM_OP_SIMD_PREFIX = 0xfd,
     WASM_OP_ATOMIC_PREFIX = 0xfe,
 } WASMOpcode;
+
+typedef enum WASMGCEXTOpcode {
+    WASM_OP_STRUCT_NEW = 0x00,         /* struct.new */
+    WASM_OP_STRUCT_NEW_DEFAULT = 0x01, /* struct.new_default */
+    WASM_OP_STRUCT_GET = 0x02,         /* struct.get */
+    WASM_OP_STRUCT_GET_S = 0x03,       /* struct.get_s */
+    WASM_OP_STRUCT_GET_U = 0x04,       /* struct.get_u */
+    WASM_OP_STRUCT_SET = 0x05,         /* struct.set */
+
+    WASM_OP_ARRAY_NEW = 0x06,         /* array.new */
+    WASM_OP_ARRAY_NEW_DEFAULT = 0x07, /* array.new_default */
+    WASM_OP_ARRAY_NEW_FIXED = 0x08,   /* array.new_fixed */
+    WASM_OP_ARRAY_NEW_DATA = 0x09,    /* array.new_data */
+    WASM_OP_ARRAY_NEW_ELEM = 0x0A,    /* array.new_elem */
+    WASM_OP_ARRAY_GET = 0x0B,         /* array.get */
+    WASM_OP_ARRAY_GET_S = 0x0C,       /* array.get_s */
+    WASM_OP_ARRAY_GET_U = 0x0D,       /* array.get_u */
+    WASM_OP_ARRAY_SET = 0x0E,         /* array.set */
+    WASM_OP_ARRAY_LEN = 0x0F,         /* array.len */
+    WASM_OP_ARRAY_FILL = 0x10,        /* array.fill */
+    WASM_OP_ARRAY_COPY = 0x11,        /* array.copy */
+    WASM_OP_ARRAY_INIT_DATA = 0x12,
+    /* array.init_data */ /* TODO */
+    WASM_OP_ARRAY_INIT_ELEM = 0x13,
+    /* array.init_elem */ /* TODO */
+
+    WASM_OP_REF_TEST = 0x14,          /* ref.test */
+    WASM_OP_REF_TEST_NULLABLE = 0x15, /* ref.test_nullable */
+    WASM_OP_REF_CAST = 0x16,          /* ref.cast */
+    WASM_OP_REF_CAST_NULLABLE = 0x17, /* ref.cast_nullable */
+
+    WASM_OP_BR_ON_CAST = 0x18,      /* br_on_cast */
+    WASM_OP_BR_ON_CAST_FAIL = 0x19, /* br_on_cast_fail */
+
+    WASM_OP_ANY_CONVERT_EXTERN = 0x1A, /* any.convert_extern */
+    WASM_OP_EXTERN_CONVERT_ANY = 0x1B, /* extern.covert_any */
+
+    WASM_OP_REF_I31 = 0x1C,   /* ref.i31 */
+    WASM_OP_I31_GET_S = 0x1D, /* i31.get_s */
+    WASM_OP_I31_GET_U = 0x1E, /* i31.get_u */
+
+    /* stringref related opcodes */
+    WASM_OP_STRING_NEW_UTF8 = 0x80,          /* string.new_utf8 */
+    WASM_OP_STRING_NEW_WTF16 = 0x81,         /* string.new_wtf16 */
+    WASM_OP_STRING_CONST = 0x82,             /* string.const */
+    WASM_OP_STRING_MEASURE_UTF8 = 0x83,      /* string.measure_utf8 */
+    WASM_OP_STRING_MEASURE_WTF8 = 0x84,      /* string.measure_wtf8 */
+    WASM_OP_STRING_MEASURE_WTF16 = 0x85,     /* string.measure_wtf16 */
+    WASM_OP_STRING_ENCODE_UTF8 = 0x86,       /* string.encode_utf8 */
+    WASM_OP_STRING_ENCODE_WTF16 = 0x87,      /* string.encode_wtf16 */
+    WASM_OP_STRING_CONCAT = 0x88,            /* string.concat */
+    WASM_OP_STRING_EQ = 0x89,                /* string.eq */
+    WASM_OP_STRING_IS_USV_SEQUENCE = 0x8a,   /* string.is_usv_sequence */
+    WASM_OP_STRING_NEW_LOSSY_UTF8 = 0x8b,    /* string.new_lossy_utf8 */
+    WASM_OP_STRING_NEW_WTF8 = 0x8c,          /* string.new_wtf8 */
+    WASM_OP_STRING_ENCODE_LOSSY_UTF8 = 0x8d, /* string.encode_lossy_utf8 */
+    WASM_OP_STRING_ENCODE_WTF8 = 0x8e,       /* string.encode_wtf8 */
+
+    WASM_OP_STRING_AS_WTF8 = 0x90,          /* string.as_wtf8 */
+    WASM_OP_STRINGVIEW_WTF8_ADVANCE = 0x91, /* stringview_wtf8.advance */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_UTF8 =
+        0x92,                             /* stringview_wtf8.encode_utf8 */
+    WASM_OP_STRINGVIEW_WTF8_SLICE = 0x93, /* stringview_wtf8.slice */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_LOSSY_UTF8 =
+        0x94, /* stringview_wtf8.encode_lossy_utf8 */
+    WASM_OP_STRINGVIEW_WTF8_ENCODE_WTF8 =
+        0x95, /* stringview_wtf8.encode_wtf8 */
+
+    WASM_OP_STRING_AS_WTF16 = 0x98,         /* string.as_wtf16 */
+    WASM_OP_STRINGVIEW_WTF16_LENGTH = 0x99, /* stringview_wtf16.length */
+    WASM_OP_STRINGVIEW_WTF16_GET_CODEUNIT =
+        0x9a,                               /* stringview_wtf16.get_codeunit */
+    WASM_OP_STRINGVIEW_WTF16_ENCODE = 0x9b, /* stringview_wtf16.encode */
+    WASM_OP_STRINGVIEW_WTF16_SLICE = 0x9c,  /* stringview_wtf16.slice */
+
+    WASM_OP_STRING_AS_ITER = 0xa0,          /* string.as_iter */
+    WASM_OP_STRINGVIEW_ITER_NEXT = 0xa1,    /* stringview_iter.next */
+    WASM_OP_STRINGVIEW_ITER_ADVANCE = 0xa2, /* stringview_iter.advance */
+    WASM_OP_STRINGVIEW_ITER_REWIND = 0xa3,  /* stringview_iter.rewind */
+    WASM_OP_STRINGVIEW_ITER_SLICE = 0xa4,   /* stringview_iter.slice */
+
+    WASM_OP_STRING_NEW_UTF8_ARRAY = 0xb0,     /* string.new_utf8_array */
+    WASM_OP_STRING_NEW_WTF16_ARRAY = 0xb1,    /* string.new_wtf16_array */
+    WASM_OP_STRING_ENCODE_UTF8_ARRAY = 0xb2,  /* string.encode_utf8_array */
+    WASM_OP_STRING_ENCODE_WTF16_ARRAY = 0xb3, /* string.encode_wtf16_array */
+    WASM_OP_STRING_NEW_LOSSY_UTF8_ARRAY =
+        0xb4,                             /* string.new_lossy_utf8_array */
+    WASM_OP_STRING_NEW_WTF8_ARRAY = 0xb5, /* string.new_wtf8_array */
+    WASM_OP_STRING_ENCODE_LOSSY_UTF8_ARRAY =
+        0xb6, /* string.encode_lossy_utf8_array */
+    WASM_OP_STRING_ENCODE_WTF8_ARRAY = 0xb7, /* string.encode_wtf8_array */
+} WASMGCEXTOpcode;
 
 typedef enum WASMMiscEXTOpcode {
     WASM_OP_I32_TRUNC_SAT_S_F32 = 0x00,
@@ -494,8 +602,8 @@ typedef enum WASMSimdEXTOpcode {
     /* placeholder            = 0xa2 */
     SIMD_i32x4_all_true = 0xa3,
     SIMD_i32x4_bitmask = 0xa4,
-    SIMD_i32x4_narrow_i64x2_s = 0xa5,
-    SIMD_i32x4_narrow_i64x2_u = 0xa6,
+    /* placeholder     = 0xa5 */
+    /* placeholder     = 0xa6 */
     SIMD_i32x4_extend_low_i16x8_s = 0xa7,
     SIMD_i32x4_extend_high_i16x8_s = 0xa8,
     SIMD_i32x4_extend_low_i16x8_u = 0xa9,
@@ -504,19 +612,19 @@ typedef enum WASMSimdEXTOpcode {
     SIMD_i32x4_shr_s = 0xac,
     SIMD_i32x4_shr_u = 0xad,
     SIMD_i32x4_add = 0xae,
-    SIMD_i32x4_add_sat_s = 0xaf,
-    SIMD_i32x4_add_sat_u = 0xb0,
+    /* placeholder = 0xaf */
+    /* placeholder = 0xb0 */
     SIMD_i32x4_sub = 0xb1,
-    SIMD_i32x4_sub_sat_s = 0xb2,
-    SIMD_i32x4_sub_sat_u = 0xb3,
-    /* placeholder            = 0xb4 */
+    /* placeholder = 0xb2 */
+    /* placeholder = 0xb3 */
+    /* placeholder = 0xb4 */
     SIMD_i32x4_mul = 0xb5,
     SIMD_i32x4_min_s = 0xb6,
     SIMD_i32x4_min_u = 0xb7,
     SIMD_i32x4_max_s = 0xb8,
     SIMD_i32x4_max_u = 0xb9,
     SIMD_i32x4_dot_i16x8_s = 0xba,
-    SIMD_i32x4_avgr_u = 0xbb,
+    /* placeholder         = 0xbb */
     SIMD_i32x4_extmul_low_i16x8_s = 0xbc,
     SIMD_i32x4_extmul_high_i16x8_s = 0xbd,
     SIMD_i32x4_extmul_low_i16x8_u = 0xbe,
@@ -559,7 +667,7 @@ typedef enum WASMSimdEXTOpcode {
     /* f32x4 operation */
     SIMD_f32x4_abs = 0xe0,
     SIMD_f32x4_neg = 0xe1,
-    SIMD_f32x4_round = 0xe2,
+    /* placeholder = 0xe2 */
     SIMD_f32x4_sqrt = 0xe3,
     SIMD_f32x4_add = 0xe4,
     SIMD_f32x4_sub = 0xe5,
@@ -573,7 +681,7 @@ typedef enum WASMSimdEXTOpcode {
     /* f64x2 operation */
     SIMD_f64x2_abs = 0xec,
     SIMD_f64x2_neg = 0xed,
-    SIMD_f64x2_round = 0xee,
+    /* placeholder = 0xee */
     SIMD_f64x2_sqrt = 0xef,
     SIMD_f64x2_add = 0xf0,
     SIMD_f64x2_sub = 0xf1,
@@ -675,12 +783,32 @@ typedef enum WASMAtomicEXTOpcode {
 } WASMAtomicEXTOpcode;
 
 #if WASM_ENABLE_DEBUG_INTERP != 0
-#define DEF_DEBUG_BREAK_HANDLE(_name) \
-    _name[DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK); /* 0xd7 */
+#define DEF_DEBUG_BREAK_HANDLE() \
+    [DEBUG_OP_BREAK] = HANDLE_OPCODE(DEBUG_OP_BREAK), /* 0xdb */
 #else
-#define DEF_DEBUG_BREAK_HANDLE(_name)
+#define DEF_DEBUG_BREAK_HANDLE()
+#endif
+#define SET_GOTO_TABLE_ELEM(opcode) [opcode] = HANDLE_OPCODE(opcode)
+
+#if WASM_ENABLE_SIMDE != 0
+#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM() \
+    SET_GOTO_TABLE_ELEM(WASM_OP_SIMD_PREFIX),
+#else
+#define SET_GOTO_TABLE_SIMD_PREFIX_ELEM()
 #endif
 
+#if WASM_ENABLE_SIMDE != 0
+#define DEF_EXT_V128_HANDLE()                                       \
+    SET_GOTO_TABLE_ELEM(EXT_OP_SET_LOCAL_FAST_V128),     /* 0xdd */ \
+        SET_GOTO_TABLE_ELEM(EXT_OP_TEE_LOCAL_FAST_V128), /* 0xde */ \
+        SET_GOTO_TABLE_ELEM(EXT_OP_COPY_STACK_TOP_V128), /* 0xdf */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_GET_GLOBAL_V128),    /* 0xe0 */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_SET_GLOBAL_V128),    /* 0xe1 */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_SELECT_128),         /* 0xe2 */
+
+#else
+#define DEF_EXT_V128_HANDLE()
+#endif
 /*
  * Macro used to generate computed goto tables for the C interpreter.
  */
@@ -694,10 +822,10 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_LOOP),                 /* 0x03 */ \
         HANDLE_OPCODE(WASM_OP_IF),                   /* 0x04 */ \
         HANDLE_OPCODE(WASM_OP_ELSE),                 /* 0x05 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x06),          /* 0x06 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x07),          /* 0x07 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x08),          /* 0x08 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x09),          /* 0x09 */ \
+        HANDLE_OPCODE(WASM_OP_TRY),                  /* 0x06 */ \
+        HANDLE_OPCODE(WASM_OP_CATCH),                /* 0x07 */ \
+        HANDLE_OPCODE(WASM_OP_THROW),                /* 0x08 */ \
+        HANDLE_OPCODE(WASM_OP_RETHROW),              /* 0x09 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x0a),          /* 0x0a */ \
         HANDLE_OPCODE(WASM_OP_END),                  /* 0x0b */ \
         HANDLE_OPCODE(WASM_OP_BR),                   /* 0x0c */ \
@@ -708,12 +836,12 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_CALL_INDIRECT),        /* 0x11 */ \
         HANDLE_OPCODE(WASM_OP_RETURN_CALL),          /* 0x12 */ \
         HANDLE_OPCODE(WASM_OP_RETURN_CALL_INDIRECT), /* 0x13 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x14),          /* 0x14 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x15),          /* 0x15 */ \
+        HANDLE_OPCODE(WASM_OP_CALL_REF),             /* 0x14 */ \
+        HANDLE_OPCODE(WASM_OP_RETURN_CALL_REF),      /* 0x15 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x16),          /* 0x16 */ \
         HANDLE_OPCODE(WASM_OP_UNUSED_0x17),          /* 0x17 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x18),          /* 0x18 */ \
-        HANDLE_OPCODE(WASM_OP_UNUSED_0x19),          /* 0x19 */ \
+        HANDLE_OPCODE(WASM_OP_DELEGATE),             /* 0x18 */ \
+        HANDLE_OPCODE(WASM_OP_CATCH_ALL),            /* 0x19 */ \
         HANDLE_OPCODE(WASM_OP_DROP),                 /* 0x1a */ \
         HANDLE_OPCODE(WASM_OP_SELECT),               /* 0x1b */ \
         HANDLE_OPCODE(WASM_OP_SELECT_T),             /* 0x1c */ \
@@ -899,18 +1027,21 @@ typedef enum WASMAtomicEXTOpcode {
         HANDLE_OPCODE(WASM_OP_REF_NULL),             /* 0xd0 */ \
         HANDLE_OPCODE(WASM_OP_REF_IS_NULL),          /* 0xd1 */ \
         HANDLE_OPCODE(WASM_OP_REF_FUNC),             /* 0xd2 */ \
-        HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd3 */ \
-        HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd4 */ \
-        HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd5 */ \
-        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xd6 */ \
-    };                                                          \
-    do {                                                        \
-        _name[WASM_OP_MISC_PREFIX] =                            \
-            HANDLE_OPCODE(WASM_OP_MISC_PREFIX); /* 0xfc */      \
-        _name[WASM_OP_ATOMIC_PREFIX] =                          \
-            HANDLE_OPCODE(WASM_OP_ATOMIC_PREFIX); /* 0xfe */    \
-        DEF_DEBUG_BREAK_HANDLE(_name)                           \
-    } while (0)
+        HANDLE_OPCODE(WASM_OP_REF_EQ),               /* 0xd3 */ \
+        HANDLE_OPCODE(WASM_OP_REF_AS_NON_NULL),      /* 0xd4 */ \
+        HANDLE_OPCODE(WASM_OP_BR_ON_NULL),           /* 0xd5 */ \
+        HANDLE_OPCODE(WASM_OP_BR_ON_NON_NULL),       /* 0xd6 */ \
+        HANDLE_OPCODE(EXT_OP_BLOCK),                 /* 0xd7 */ \
+        HANDLE_OPCODE(EXT_OP_LOOP),                  /* 0xd8 */ \
+        HANDLE_OPCODE(EXT_OP_IF),                    /* 0xd9 */ \
+        HANDLE_OPCODE(EXT_OP_BR_TABLE_CACHE),        /* 0xda */ \
+        HANDLE_OPCODE(EXT_OP_TRY),                   /* 0xdb */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_GC_PREFIX),      /* 0xfb */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_MISC_PREFIX),    /* 0xfc */ \
+        SET_GOTO_TABLE_SIMD_PREFIX_ELEM()            /* 0xfd */ \
+        SET_GOTO_TABLE_ELEM(WASM_OP_ATOMIC_PREFIX),  /* 0xfe */ \
+        DEF_DEBUG_BREAK_HANDLE() DEF_EXT_V128_HANDLE()          \
+    };
 
 #ifdef __cplusplus
 }

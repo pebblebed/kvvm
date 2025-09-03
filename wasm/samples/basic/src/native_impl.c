@@ -7,11 +7,7 @@
 #include "wasm_export.h"
 #include "math.h"
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32_t element_indices,
-                           uint32_t argc, uint32_t argv[]);
-
-// The first parameter is not exec_env because it is invoked by native funtions
+// The first parameter is not exec_env because it is invoked by native functions
 void
 reverse(char *str, int len)
 {

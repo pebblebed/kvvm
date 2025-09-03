@@ -9,60 +9,186 @@
 #define R_RISCV_64 2
 #define R_RISCV_CALL 18
 #define R_RISCV_CALL_PLT 19
+#define R_RISCV_PCREL_HI20 23
+#define R_RISCV_PCREL_LO12_I 24
+#define R_RISCV_PCREL_LO12_S 25
 #define R_RISCV_HI20 26
 #define R_RISCV_LO12_I 27
 #define R_RISCV_LO12_S 28
 
 #define RV_OPCODE_SW 0x23
 
+#undef NEED_SOFT_FP
+#undef NEED_SOFT_DP
+#undef NEED_SOFT_I32_MUL
+#undef NEED_SOFT_I32_DIV
+#undef NEED_SOFT_I64_MUL
+#undef NEED_SOFT_I64_DIV
+#undef NEED_SOFT_ATOMIC
+
+#ifdef __riscv_flen
+#if __riscv_flen == 32
+#define NEED_SOFT_DP
+#endif
+#else
+#define NEED_SOFT_FP
+#define NEED_SOFT_DP
+#endif
+
+#ifndef __riscv_mul
+#define NEED_SOFT_I32_MUL
+#define NEED_SOFT_I64_MUL
+#elif __riscv_xlen == 32
+#define NEED_SOFT_I64_MUL
+#endif
+
+#ifndef __riscv_div
+#define NEED_SOFT_I32_DIV
+#define NEED_SOFT_I64_DIV
+#elif __riscv_xlen == 32
+#define NEED_SOFT_I64_DIV
+#endif
+
+#ifndef __riscv_atomic
+#define NEED_SOFT_ATOMIC
+#endif
+
 /* clang-format off */
-void __divdi3();
-void __divsi3();
-void __fixdfdi();
-void __fixsfdi();
-void __fixunsdfdi();
-void __fixunssfdi();
-void __floatdidf();
-void __floatdisf();
-void __floatundidf();
-void __floatundisf();
-void __moddi3();
-void __modsi3();
-void __muldi3();
-void __mulsi3();
-void __udivdi3();
-void __udivsi3();
-void __umoddi3();
-void __umodsi3();
+void __adddf3(void);
+void __addsf3(void);
+void __divdf3(void);
+void __divdi3(void);
+void __divsf3(void);
+void __divsi3(void);
+void __eqdf2(void);
+void __eqsf2(void);
+void __extendsfdf2(void);
+void __fixdfdi(void);
+void __fixdfsi(void);
+void __fixsfdi(void);
+void __fixsfsi(void);
+void __fixunsdfdi(void);
+void __fixunsdfsi(void);
+void __fixunssfdi(void);
+void __fixunssfsi(void);
+void __floatdidf(void);
+void __floatdisf(void);
+void __floatsidf(void);
+void __floatsisf(void);
+void __floatundidf(void);
+void __floatundisf(void);
+void __floatunsidf(void);
+void __floatunsisf(void);
+void __gedf2(void);
+void __gesf2(void);
+void __gtdf2(void);
+void __gtsf2(void);
+void __ledf2(void);
+void __lesf2(void);
+void __ltdf2(void);
+void __ltsf2(void);
+void __moddi3(void);
+void __modsi3(void);
+void __muldf3(void);
+void __muldi3(void);
+void __mulsf3(void);
+void __mulsi3(void);
+void __nedf2(void);
+void __negdf2(void);
+void __negsf2(void);
+void __nesf2(void);
+void __subdf3(void);
+void __subsf3(void);
+void __truncdfsf2(void);
+void __udivdi3(void);
+void __udivsi3(void);
+void __umoddi3(void);
+void __umodsi3(void);
+void __unorddf2(void);
+void __unordsf2(void);
+bool __atomic_compare_exchange_4(volatile void *, void *, unsigned int,
+                                 bool, int, int);
+void __atomic_store_4(volatile void *, unsigned int, int);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
     /* clang-format off */
     REG_COMMON_SYMBOLS
-    REG_SYM(__divdi3),
-    REG_SYM(__divsi3),
-#if __riscv_xlen == 32
-    REG_SYM(__fixdfdi),
+#ifdef NEED_SOFT_FP
+    REG_SYM(__addsf3),
+    REG_SYM(__divsf3),
+    REG_SYM(__eqsf2),
     REG_SYM(__fixsfdi),
-#endif
-    REG_SYM(__fixunsdfdi),
     REG_SYM(__fixunssfdi),
-#if __riscv_xlen == 32
-    REG_SYM(__floatdidf),
-    REG_SYM(__floatdisf),
-    REG_SYM(__floatundidf),
+    REG_SYM(__fixunssfsi),
+    REG_SYM(__floatsidf),
+    REG_SYM(__gesf2),
+    REG_SYM(__gtsf2),
+    REG_SYM(__lesf2),
+    REG_SYM(__mulsf3),
+    REG_SYM(__negsf2),
+    REG_SYM(__nesf2),
+    REG_SYM(__subsf3),
+    REG_SYM(__unordsf2),
+#elif __riscv_xlen == 32
+    /* rv32f, support FP instruction but need soft routines
+     * to convert float and long long
+     */
     REG_SYM(__floatundisf),
+    REG_SYM(__floatdisf),
 #endif
-    REG_SYM(__moddi3),
-    REG_SYM(__modsi3),
-    REG_SYM(__muldi3),
-#if __riscv_xlen == 32
+#ifdef NEED_SOFT_DP
+    REG_SYM(__adddf3),
+    REG_SYM(__divdf3),
+    REG_SYM(__eqdf2),
+    REG_SYM(__extendsfdf2),
+    REG_SYM(__fixdfdi),
+    REG_SYM(__fixdfsi),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__fixunsdfsi),
+    REG_SYM(__floatdidf),
+    REG_SYM(__floatsidf),
+    REG_SYM(__floatundidf),
+    REG_SYM(__floatunsidf),
+    REG_SYM(__gedf2),
+    REG_SYM(__gtdf2),
+    REG_SYM(__ledf2),
+    REG_SYM(__ltdf2),
+    REG_SYM(__muldf3),
+    REG_SYM(__nedf2),
+    REG_SYM(__negdf2),
+    REG_SYM(__subdf3),
+    REG_SYM(__truncdfsf2),
+    REG_SYM(__unorddf2),
+#elif __riscv_xlen == 32
+    /* rv32d, support DP instruction but need soft routines
+     * to convert double and long long
+     */
+    REG_SYM(__fixdfdi),
+    REG_SYM(__floatundidf),
+#endif
+#ifdef NEED_SOFT_I32_MUL
     REG_SYM(__mulsi3),
 #endif
-    REG_SYM(__udivdi3),
+#ifdef NEED_SOFT_I32_DIV
+    REG_SYM(__divsi3),
+    REG_SYM(__modsi3),
     REG_SYM(__udivsi3),
-    REG_SYM(__umoddi3),
     REG_SYM(__umodsi3),
+#endif
+#ifdef NEED_SOFT_I64_MUL
+    REG_SYM(__muldi3),
+#endif
+#ifdef NEED_SOFT_I64_DIV
+    REG_SYM(__divdi3),
+    REG_SYM(__moddi3),
+    REG_SYM(__udivdi3),
+    REG_SYM(__umoddi3),
+#endif
+#ifdef NEED_SOFT_ATOMIC
+    REG_SYM(__atomic_compare_exchange_4),
+    REG_SYM(__atomic_store_4),
+#endif
     /* clang-format on */
 };
 
@@ -80,7 +206,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
 #if __riscv_xlen == 64
     /* auipc + ld + jalr + nop + addr */
@@ -113,7 +239,11 @@ rv_set_val(uint16 *addr, uint32 val)
     *addr = (val & 0xffff);
     *(addr + 1) = (val >> 16);
 
+#ifdef __riscv_zifencei
     __asm__ volatile("fence.i");
+#else
+    __asm__ volatile("fence");
+#endif
 }
 
 /* Add a val to given address */
@@ -201,9 +331,11 @@ typedef struct RelocTypeStrMap {
     }
 
 static RelocTypeStrMap reloc_type_str_maps[] = {
-    RELOC_TYPE_MAP(R_RISCV_32),       RELOC_TYPE_MAP(R_RISCV_CALL),
-    RELOC_TYPE_MAP(R_RISCV_CALL_PLT), RELOC_TYPE_MAP(R_RISCV_HI20),
-    RELOC_TYPE_MAP(R_RISCV_LO12_I),   RELOC_TYPE_MAP(R_RISCV_LO12_S),
+    RELOC_TYPE_MAP(R_RISCV_32),           RELOC_TYPE_MAP(R_RISCV_64),
+    RELOC_TYPE_MAP(R_RISCV_CALL),         RELOC_TYPE_MAP(R_RISCV_CALL_PLT),
+    RELOC_TYPE_MAP(R_RISCV_PCREL_HI20),   RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_I),
+    RELOC_TYPE_MAP(R_RISCV_PCREL_LO12_S), RELOC_TYPE_MAP(R_RISCV_HI20),
+    RELOC_TYPE_MAP(R_RISCV_LO12_I),       RELOC_TYPE_MAP(R_RISCV_LO12_S),
 };
 
 static const char *
@@ -258,21 +390,37 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             rv_set_val((uint16 *)addr, val_32);
             break;
         }
+
+#if __riscv_xlen == 64
         case R_RISCV_64:
         {
             uint64 val_64 =
-                (uint64)((uintptr_t)symbol_addr + (intptr_t)reloc_addend);
+                (uint64)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
+
             CHECK_RELOC_OFFSET(sizeof(uint64));
+            if (val_64
+                != (uint64)((intptr_t)symbol_addr + (intptr_t)reloc_addend)) {
+                goto fail_addr_out_of_range;
+            }
+
             bh_memcpy_s(addr, 8, &val_64, 8);
+#ifdef __riscv_zifencei
+            __asm__ volatile("fence.i");
+#else
+            __asm__ volatile("fence");
+#endif
             break;
         }
+#endif
+
         case R_RISCV_CALL:
         case R_RISCV_CALL_PLT:
+        case R_RISCV_PCREL_HI20: /* S + A - P */
         {
-            val = (int32)(intptr_t)((uint8 *)symbol_addr - addr);
+            val = (int32)(intptr_t)((uint8 *)symbol_addr + reloc_addend - addr);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
-            if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
+            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend - addr)) {
                 if (symbol_index >= 0) {
                     /* Call runtime function by plt code */
                     symbol_addr = (uint8 *)module->code + module->code_size
@@ -282,7 +430,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 }
             }
 
-            if (val != (intptr_t)((uint8 *)symbol_addr - addr)) {
+            if (val != (intptr_t)((uint8 *)symbol_addr + reloc_addend - addr)) {
                 goto fail_addr_out_of_range;
             }
 
@@ -303,7 +451,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_HI20:
+        case R_RISCV_HI20: /* S + A */
         {
             val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
@@ -312,7 +460,6 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 goto fail_addr_out_of_range;
             }
 
-            addr = target_section_addr + reloc_offset;
             insn = rv_get_val((uint16 *)addr);
             rv_calc_imm(val, &imm_hi, &imm_lo);
             insn = (insn & 0x00000fff) | (imm_hi << 12);
@@ -320,11 +467,42 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             break;
         }
 
-        case R_RISCV_LO12_I:
+        case R_RISCV_PCREL_LO12_I: /* S - P */
+        case R_RISCV_PCREL_LO12_S: /* S - P */
         {
+            /* Already handled in R_RISCV_PCREL_HI20, it should be skipped for
+             * most cases. But it is still needed for some special cases, e.g.
+             * ```
+             * label:
+             *    auipc t0, %pcrel_hi(symbol)   # R_RISCV_PCREL_HI20 (symbol)
+             *    lui t1, 1
+             *    lw t2, t0, %pcrel_lo(label)   # R_RISCV_PCREL_LO12_I (label)
+             *    add t2, t2, t1
+             *    sw t2, t0, %pcrel_lo(label)   # R_RISCV_PCREL_LO12_S (label)
+             * ```
+             * In this case, the R_RISCV_PCREL_LO12_I/S relocation should be
+             * handled after R_RISCV_PCREL_HI20 relocation.
+             *
+             * So, if the R_RISCV_PCREL_LO12_I/S relocation is not followed by
+             * R_RISCV_PCREL_HI20 relocation, it should be handled here but
+             * not implemented yet.
+             */
+
+            if ((uintptr_t)addr - (uintptr_t)symbol_addr
+                    - (uintptr_t)reloc_addend
+                != 4) {
+                goto fail_addr_out_of_range;
+            }
+            break;
+        }
+
+        case R_RISCV_LO12_I: /* S + A */
+        {
+
             val = (int32)((intptr_t)symbol_addr + (intptr_t)reloc_addend);
 
             CHECK_RELOC_OFFSET(sizeof(uint32));
+
             if (val != (intptr_t)symbol_addr + (intptr_t)reloc_addend) {
                 goto fail_addr_out_of_range;
             }

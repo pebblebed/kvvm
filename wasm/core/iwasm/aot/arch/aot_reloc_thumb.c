@@ -8,89 +8,108 @@
 #define R_ARM_ABS32 2      /* Direct 32 bit */
 #define R_ARM_THM_CALL 10  /* PC relative (Thumb BL and ARMv5 Thumb BLX). */
 #define R_ARM_THM_JMP24 30 /* B.W */
+#define R_ARM_THM_MOVW_ABS_NC 47
+#define R_ARM_THM_MOVT_ABS 48
+#define R_ARM_THM_MOVW_PREL_NC 49
+#define R_ARM_THM_MOVT_PREL 50
 
 /* clang-format off */
-void __adddf3();
-void __addsf3();
-void __aeabi_d2iz();
-void __aeabi_d2lz();
-void __aeabi_d2uiz();
-void __aeabi_d2ulz();
-void __aeabi_dadd();
-void __aeabi_dcmpge();
-void __aeabi_dcmpgt();
-void __aeabi_dcmple();
-void __aeabi_dcmplt();
-void __aeabi_dcmpun();
-void __aeabi_ddiv();
-void __aeabi_f2d();
-void __aeabi_f2iz();
-void __aeabi_f2lz();
-void __aeabi_f2ulz();
-void __aeabi_fcmpge();
-void __aeabi_fcmple();
-void __aeabi_fcmplt();
-void __aeabi_fcmpun();
-void __aeabi_i2d();
-void __aeabi_idiv();
-void __aeabi_idivmod();
-void __aeabi_l2d();
-void __aeabi_l2f();
-void __aeabi_ldivmod();
-void __aeabi_ui2d();
-void __aeabi_uidiv();
-void __aeabi_uidivmod();
-void __aeabi_ul2d();
-void __aeabi_ul2f();
-void __aeabi_uldivmod();
-void __ashldi3();
-void __clzsi2();
-void __divdf3();
-void __divdi3();
-void __divsi3();
-void __eqdf2();
-void __eqsf2();
-void __extendsfdf2();
-void __fixdfdi();
-void __fixdfsi();
-void __fixsfdi();
-void __fixunsdfdi();
-void __fixunsdfsi();
-void __fixunssfdi();
-void __floatdidf();
-void __floatdisf();
-void __floatsidf();
-void __floatsisf();
-void __floatundidf();
-void __floatundisf();
-void __floatunsidf();
-void __floatunsisf();
-void __gedf2();
-void __gesf2();
-void __gtdf2();
-void __gtsf2();
-void __ledf2();
-void __lesf2();
-void __lshrdi3();
-void __ltdf2();
-void __ltsf2();
-void __moddi3();
-void __modsi3();
-void __muldf3();
-void __muldi3();
-void __mulsf3();
-void __nedf2();
-void __nesf2();
-void __subdf3();
-void __subsf3();
-void __truncdfsf2();
-void __udivdi3();
-void __udivmoddi4();
-void __udivsi3();
-void __umoddi3();
-void __umodsi3();
-void __unorddf2();
-void __unordsf2();
+void __adddf3(void);
+void __addsf3(void);
+void __aeabi_d2f(void);
+void __aeabi_d2iz(void);
+void __aeabi_d2lz(void);
+void __aeabi_d2uiz(void);
+void __aeabi_d2ulz(void);
+void __aeabi_dadd(void);
+void __aeabi_dcmpeq(void);
+void __aeabi_dcmpge(void);
+void __aeabi_dcmpgt(void);
+void __aeabi_dcmple(void);
+void __aeabi_dcmplt(void);
+void __aeabi_dcmpun(void);
+void __aeabi_ddiv(void);
+void __aeabi_dmul(void);
+void __aeabi_dsub(void);
+void __aeabi_f2d(void);
+void __aeabi_f2iz(void);
+void __aeabi_f2lz(void);
+void __aeabi_f2ulz(void);
+void __aeabi_fadd(void);
+void __aeabi_fcmpeq(void);
+void __aeabi_fcmpge(void);
+void __aeabi_fcmpgt(void);
+void __aeabi_fcmple(void);
+void __aeabi_fcmplt(void);
+void __aeabi_fcmpun(void);
+void __aeabi_fdiv(void);
+void __aeabi_fmul(void);
+void __aeabi_fsub(void);
+void __aeabi_i2d(void);
+void __aeabi_i2f(void);
+void __aeabi_idiv(void);
+void __aeabi_idivmod(void);
+void __aeabi_l2d(void);
+void __aeabi_l2f(void);
+void __aeabi_ldivmod(void);
+void __aeabi_llsl(void);
+void __aeabi_llsr(void);
+void __aeabi_lmul(void);
+void __aeabi_ui2d(void);
+void __aeabi_ui2f(void);
+void __aeabi_uidiv(void);
+void __aeabi_uidivmod(void);
+void __aeabi_ul2d(void);
+void __aeabi_ul2f(void);
+void __aeabi_uldivmod(void);
+void __ashldi3(void);
+void __clzsi2(void);
+void __divdf3(void);
+void __divdi3(void);
+void __divsi3(void);
+void __eqdf2(void);
+void __eqsf2(void);
+void __extendsfdf2(void);
+void __fixdfdi(void);
+void __fixdfsi(void);
+void __fixsfdi(void);
+void __fixunsdfdi(void);
+void __fixunsdfsi(void);
+void __fixunssfdi(void);
+void __floatdidf(void);
+void __floatdisf(void);
+void __floatsidf(void);
+void __floatsisf(void);
+void __floatundidf(void);
+void __floatundisf(void);
+void __floatunsidf(void);
+void __floatunsisf(void);
+void __gedf2(void);
+void __gesf2(void);
+void __gtdf2(void);
+void __gtsf2(void);
+void __ledf2(void);
+void __lesf2(void);
+void __lshrdi3(void);
+void __ltdf2(void);
+void __ltsf2(void);
+void __moddi3(void);
+void __modsi3(void);
+void __muldf3(void);
+void __muldi3(void);
+void __mulsf3(void);
+void __nedf2(void);
+void __nesf2(void);
+void __subdf3(void);
+void __subsf3(void);
+void __truncdfsf2(void);
+void __udivdi3(void);
+void __udivmoddi4(void);
+void __udivsi3(void);
+void __umoddi3(void);
+void __umodsi3(void);
+void __unorddf2(void);
+void __unordsf2(void);
 /* clang-format on */
 
 static SymbolMap target_sym_map[] = {
@@ -116,32 +135,47 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__unordsf2),
 #endif
     /* clang-format on */
+    REG_SYM(__aeabi_d2f),
     REG_SYM(__aeabi_d2iz),
     REG_SYM(__aeabi_d2lz),
     REG_SYM(__aeabi_d2uiz),
     REG_SYM(__aeabi_d2ulz),
     REG_SYM(__aeabi_dadd),
+    REG_SYM(__aeabi_dcmpeq),
     REG_SYM(__aeabi_dcmpge),
     REG_SYM(__aeabi_dcmpgt),
     REG_SYM(__aeabi_dcmple),
     REG_SYM(__aeabi_dcmplt),
     REG_SYM(__aeabi_dcmpun),
     REG_SYM(__aeabi_ddiv),
+    REG_SYM(__aeabi_dmul),
+    REG_SYM(__aeabi_dsub),
     REG_SYM(__aeabi_f2d),
     REG_SYM(__aeabi_f2iz),
     REG_SYM(__aeabi_f2lz),
     REG_SYM(__aeabi_f2ulz),
+    REG_SYM(__aeabi_fadd),
+    REG_SYM(__aeabi_fcmpeq),
     REG_SYM(__aeabi_fcmpge),
+    REG_SYM(__aeabi_fcmpgt),
     REG_SYM(__aeabi_fcmple),
     REG_SYM(__aeabi_fcmplt),
     REG_SYM(__aeabi_fcmpun),
+    REG_SYM(__aeabi_fdiv),
+    REG_SYM(__aeabi_fmul),
+    REG_SYM(__aeabi_fsub),
     REG_SYM(__aeabi_i2d),
+    REG_SYM(__aeabi_i2f),
     REG_SYM(__aeabi_idiv),
     REG_SYM(__aeabi_idivmod),
     REG_SYM(__aeabi_l2d),
     REG_SYM(__aeabi_l2f),
     REG_SYM(__aeabi_ldivmod),
+    REG_SYM(__aeabi_llsl),
+    REG_SYM(__aeabi_llsr),
+    REG_SYM(__aeabi_lmul),
     REG_SYM(__aeabi_ui2d),
+    REG_SYM(__aeabi_ui2f),
     REG_SYM(__aeabi_uidiv),
     REG_SYM(__aeabi_uidivmod),
     REG_SYM(__aeabi_ul2d),
@@ -225,7 +259,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 #undef BUILD_TARGET_THUMB_V4T
 
 uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     /* 16 bytes instructions and 4 bytes symbol address */
     return 20;
@@ -370,6 +404,48 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             *(uintptr_t *)(target_section_addr + reloc_offset) =
                 (uintptr_t)symbol_addr + initial_addend
                 + (intptr_t)reloc_addend;
+            break;
+        }
+        case R_ARM_THM_MOVW_ABS_NC:
+        case R_ARM_THM_MOVT_ABS:
+        case R_ARM_THM_MOVW_PREL_NC:
+        case R_ARM_THM_MOVT_PREL:
+        {
+            uint16 upper = *(uint16 *)(target_section_addr + reloc_offset);
+            uint16 lower = *(uint16 *)(target_section_addr + reloc_offset + 2);
+            int32 offset;
+
+            /*
+             * MOVT/MOVW instructions encoding in Thumb-2:
+             *
+             * i	= upper[10]
+             * imm4	= upper[3:0]
+             * imm3	= lower[14:12]
+             * imm8	= lower[7:0]
+             *
+             * imm16 = imm4:i:imm3:imm8
+             */
+
+            offset = ((upper & 0x000f) << 12) | ((upper & 0x0400) << 1)
+                     | ((lower & 0x7000) >> 4) | (lower & 0x00ff);
+            offset = (offset ^ 0x8000) - 0x8000;
+
+            offset += (symbol_addr + reloc_addend);
+
+            if (reloc_type == R_ARM_THM_MOVT_PREL
+                || reloc_type == R_ARM_THM_MOVW_PREL_NC)
+                offset -= (int32)(target_section_addr + reloc_offset);
+            if (reloc_type == R_ARM_THM_MOVT_ABS
+                || reloc_type == R_ARM_THM_MOVT_PREL)
+                offset >>= 16;
+
+            upper = (uint16)((upper & 0xfbf0) | ((offset & 0xf000) >> 12)
+                             | ((offset & 0x0800) >> 1));
+            lower = (uint16)((lower & 0x8f00) | ((offset & 0x0700) << 4)
+                             | (offset & 0x00ff));
+
+            *(uint16 *)(target_section_addr + reloc_offset) = upper;
+            *(uint16 *)(target_section_addr + reloc_offset + 2) = lower;
             break;
         }
 

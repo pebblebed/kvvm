@@ -9,12 +9,12 @@ readonly VARIANT=$(lsb_release -c | awk '{print $2}')
 
 docker build \
     --memory=4G --cpu-quota=50000 \
-    -t wamr_dev_${VARIANT}:0.1 -f "${CURRENT_PATH}"/Dockerfile "${CURRENT_PATH}" \
+    -t wamr_dev_${VARIANT}:0.1 -f "${ROOT}"/.devcontainer/Dockerfile "${ROOT}"/.devcontainer \
   && docker run --rm -it \
       --cap-add=SYS_PTRACE \
       --cpus=".5" \
       --memory=4G \
-      --mount type=bind,src="${ROOT}",dst=/workspace \
+      --mount type=bind,src="${ROOT}",dst=/workspaces \
       --name wamr_build_env \
       --security-opt=seccomp=unconfined \
       wamr_dev_${VARIANT}:0.1 \

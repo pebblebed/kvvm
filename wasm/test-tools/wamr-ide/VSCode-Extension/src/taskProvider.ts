@@ -15,7 +15,8 @@ export interface OwnShellOption {
 export class WasmTaskProvider implements vscode.TaskProvider {
     constructor(
         public _type: Map<string, string>,
-        public _script: Map<string, string>
+        public _script: Map<string, string>,
+        public _wamrVersion: string
     ) {}
 
     buildShellOption: OwnShellOption | undefined;
@@ -28,10 +29,15 @@ export class WasmTaskProvider implements vscode.TaskProvider {
     public provideTasks(): Thenable<vscode.Task[]> | undefined {
         if (!this.wasmPromise) {
             /* target name is used for generated aot target */
-            let targetName =
-                TargetConfigPanel.BUILD_ARGS.output_file_name.split('.')[0];
+            const targetName =
+                TargetConfigPanel.buildArgs.outputFileName.split('.')[0];
+            const heapSize = TargetConfigPanel.buildArgs.hostManagedHeapSize;
 
-            if (os.platform() === 'linux' || os.platform() === 'darwin' || os.platform() === 'win32') {
+            if (
+                os.platform() === 'linux' ||
+                os.platform() === 'darwin' ||
+                os.platform() === 'win32'
+            ) {
                 /* build */
                 this.buildShellOption = {
                     cmd:
@@ -40,7 +46,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('buildScript') as string),
                     options: {
                         executable: this._script.get('buildScript'),
-                        shellArgs: [targetName, os.platform()],
+                        shellArgs: [targetName, this._wamrVersion],
                     },
                 };
 
@@ -52,7 +58,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('debugScript') as string),
                     options: {
                         executable: this._script.get('debugScript'),
-                        shellArgs: [targetName],
+                        shellArgs: [targetName, this._wamrVersion, heapSize],
                     },
                 };
 
@@ -64,7 +70,7 @@ export class WasmTaskProvider implements vscode.TaskProvider {
                             : (this._script.get('runScript') as string),
                     options: {
                         executable: this._script.get('runScript'),
-                        shellArgs: [targetName],
+                        shellArgs: [targetName, this._wamrVersion, heapSize],
                     },
                 };
 
@@ -214,7 +220,10 @@ export class WasmTaskProvider implements vscode.TaskProvider {
      * @param _task
      * @returns
      */
-    public resolveTask(_task: vscode.Task): vscode.Task | undefined {
+    public resolveTask(task: vscode.Task): vscode.Task | undefined {
+        if (task) {
+            return task;
+        }
         return undefined;
     }
 }

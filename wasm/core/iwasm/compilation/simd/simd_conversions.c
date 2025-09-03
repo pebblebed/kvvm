@@ -12,7 +12,7 @@
 static bool
 simd_integer_narrow_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                         LLVMTypeRef in_vector_type, LLVMTypeRef out_vector_type,
-                        const char *instrinsic)
+                        const char *intrinsic)
 {
     LLVMValueRef vector1, vector2, result;
     LLVMTypeRef param_types[2] = { in_vector_type, in_vector_type };
@@ -24,7 +24,7 @@ simd_integer_narrow_x86(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, instrinsic,
+    if (!(result = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
                                            out_vector_type, param_types, 2,
                                            vector1, vector2))) {
         HANDLE_FAILURE("LLVMBuildCall");
@@ -158,11 +158,15 @@ simd_integer_narrow_common(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* sat */
+    /* Refer to:
+     * https://github.com/WebAssembly/spec/blob/main/proposals/simd/SIMD.md#integer-to-integer-narrowing
+     * Regardless of the whether the operation is signed or unsigned, the input
+     * lanes are interpreted as signed integers.
+     */
     if (!(vec1 = simd_saturate(comp_ctx, func_ctx, e_sat_i16x8, vec1, min, max,
-                               is_signed))
+                               true))
         || !(vec2 = simd_saturate(comp_ctx, func_ctx, e_sat_i16x8, vec2, min,
-                                  max, is_signed))) {
+                                  max, true))) {
         return false;
     }
 
@@ -222,15 +226,6 @@ aot_compile_simd_i16x8_narrow_i32x4(AOTCompContext *comp_ctx,
     }
 }
 
-bool
-aot_compile_simd_i32x4_narrow_i64x2(AOTCompContext *comp_ctx,
-                                    AOTFuncContext *func_ctx, bool is_signed)
-{
-    /* TODO: x86 intrinsics */
-    return simd_integer_narrow_common(comp_ctx, func_ctx, e_sat_i64x2,
-                                      is_signed);
-}
-
 enum integer_extend_type {
     e_ext_i8x16,
     e_ext_i16x8,
@@ -266,7 +261,7 @@ simd_integer_extension(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
         return false;
     }
 
-    /* retrive the low or high half */
+    /* retrieve the low or high half */
     if (!(sub_vector = LLVMBuildShuffleVector(comp_ctx->builder, vector,
                                               undef[itype], mask, "half"))) {
         HANDLE_FAILURE("LLVMBuildShuffleVector");
@@ -664,7 +659,7 @@ aot_compile_simd_i16x8_q15mulr_sat(AOTCompContext *comp_ctx,
 
     if (!(result = LLVMBuildTrunc(comp_ctx->builder, result, V128_i16x8_TYPE,
                                   "down_to_v8i16"))) {
-        HANDLE_FAILURE("LLVMBuidlTrunc");
+        HANDLE_FAILURE("LLVMBuildTrunc");
         return false;
     }
 

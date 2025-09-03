@@ -33,6 +33,9 @@ bh_hash_map_create(uint32 size, bool use_lock, HashFunc hash_func,
     HashMap *map;
     uint64 total_size;
 
+    if (size < HASH_MAP_MIN_SIZE)
+        size = HASH_MAP_MIN_SIZE;
+
     if (size > HASH_MAP_MAX_SIZE) {
         LOG_ERROR("HashMap create failed: size is too large.\n");
         return NULL;
@@ -48,7 +51,9 @@ bh_hash_map_create(uint32 size, bool use_lock, HashFunc hash_func,
                  + sizeof(HashMapElem *) * (uint64)size
                  + (use_lock ? sizeof(korp_mutex) : 0);
 
-    if (total_size >= UINT32_MAX || !(map = BH_MALLOC((uint32)total_size))) {
+    /* size <= HASH_MAP_MAX_SIZE, so total_size won't be larger than
+       UINT32_MAX, no need to check integer overflow */
+    if (!(map = BH_MALLOC((uint32)total_size))) {
         LOG_ERROR("HashMap create failed: alloc memory failed.\n");
         return NULL;
     }

@@ -1,12 +1,12 @@
 WAMR supports *wasm-c-api* in both *interpreter* mode and *aot* mode.
 
-Before staring, we need to download and intall [WABT](https://github.com/WebAssembly/wabt/releases/latest).
+Before staring, we need to download and install [WABT](https://github.com/WebAssembly/wabt/releases/latest).
 
 ``` shell
 $ cd /opt
-$ wget https://github.com/WebAssembly/wabt/releases/download/1.0.19/wabt-1.0.19-ubuntu.tar.gz
-$ tar -xzf wabt-1.0.19-ubuntu.tar.gz
-$ mv wabt-1.0.19 wabt
+$ wget https://github.com/WebAssembly/wabt/releases/download/1.0.31/wabt-1.0.31-ubuntu.tar.gz
+$ tar -xzf wabt-1.0.31-ubuntu.tar.gz
+$ mv wabt-1.0.31 wabt
 ```
 
 By default, all samples are compiled and run in "interpreter" mode.

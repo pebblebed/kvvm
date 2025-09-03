@@ -5,6 +5,7 @@
 
 #include "jit_emit_control.h"
 #include "jit_emit_exception.h"
+#include "jit_emit_function.h"
 #include "../jit_frontend.h"
 #include "../interpreter/wasm_loader.h"
 
@@ -29,7 +30,7 @@
 
 #define BUILD_COND_BR(value_if, block_then, block_else)                       \
     do {                                                                      \
-        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(cc, 0))           \
+        if (!GEN_INSN(CMP, cc->cmp_reg, value_if, NEW_CONST(I32, 0))          \
             || !GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(block_then), \
                          jit_basic_block_label(block_else))) {                \
             jit_set_last_error(cc, "generate bne insn failed");               \
@@ -380,11 +381,51 @@ copy_block_arities(JitCompContext *cc, JitReg dst_frame_sp, uint8 *dst_types,
     }
 }
 
-static void
+static bool
 handle_func_return(JitCompContext *cc, JitBlock *block)
 {
     JitReg prev_frame, prev_frame_sp;
     JitReg ret_reg = 0;
+#if WASM_ENABLE_PERF_PROFILING != 0
+    JitReg func_inst = jit_cc_new_reg_ptr(cc);
+    JitReg time_start = jit_cc_new_reg_I64(cc);
+    JitReg time_end = jit_cc_new_reg_I64(cc);
+    JitReg cur_exec_time = jit_cc_new_reg_I64(cc);
+    JitReg total_exec_time = jit_cc_new_reg_I64(cc);
+    JitReg total_exec_cnt = jit_cc_new_reg_I32(cc);
+#endif
+
+#if WASM_ENABLE_PERF_PROFILING != 0
+    /* time_end = os_time_thread_cputime_us() */
+    if (!jit_emit_callnative(cc, os_time_thread_cputime_us, time_end, NULL,
+                             0)) {
+        return false;
+    }
+    /* time_start = cur_frame->time_started */
+    GEN_INSN(LDI64, time_start, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, time_started)));
+    /* cur_exec_time = time_end - time_start */
+    GEN_INSN(SUB, cur_exec_time, time_end, time_start);
+    /* func_inst = cur_frame->function */
+    GEN_INSN(LDPTR, func_inst, cc->fp_reg,
+             NEW_CONST(I32, offsetof(WASMInterpFrame, function)));
+    /* total_exec_time = func_inst->total_exec_time */
+    GEN_INSN(LDI64, total_exec_time, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_time)));
+    /* total_exec_time += cur_exec_time */
+    GEN_INSN(ADD, total_exec_time, total_exec_time, cur_exec_time);
+    /* func_inst->total_exec_time = total_exec_time */
+    GEN_INSN(STI64, total_exec_time, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_time)));
+    /* totoal_exec_cnt = func_inst->total_exec_cnt */
+    GEN_INSN(LDI32, total_exec_cnt, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_cnt)));
+    /* total_exec_cnt++ */
+    GEN_INSN(ADD, total_exec_cnt, total_exec_cnt, NEW_CONST(I32, 1));
+    /* func_inst->total_exec_cnt = total_exec_cnt */
+    GEN_INSN(STI32, total_exec_cnt, func_inst,
+             NEW_CONST(I32, offsetof(WASMFunctionInstance, total_exec_cnt)));
+#endif
 
     prev_frame = jit_cc_new_reg_ptr(cc);
     prev_frame_sp = jit_cc_new_reg_ptr(cc);
@@ -409,9 +450,9 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     }
 
     /* Free stack space of the current frame:
-       exec_env->wasm_stack.s.top = cur_frame */
+       exec_env->wasm_stack.top = cur_frame */
     GEN_INSN(STPTR, cc->fp_reg, cc->exec_env_reg,
-             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.s.top)));
+             NEW_CONST(I32, offsetof(WASMExecEnv, wasm_stack.top)));
     /* Set the prev_frame as the current frame:
        exec_env->cur_frame = prev_frame */
     GEN_INSN(STPTR, prev_frame, cc->exec_env_reg,
@@ -420,6 +461,8 @@ handle_func_return(JitCompContext *cc, JitBlock *block)
     GEN_INSN(MOV, cc->fp_reg, prev_frame);
     /* return 0 */
     GEN_INSN(RETURNBC, NEW_CONST(I32, JIT_INTERP_ACTION_NORMAL), ret_reg, 0);
+
+    return true;
 }
 
 /**
@@ -446,7 +489,9 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
            create the end basic block, just continue to translate
            the following opcodes */
         if (block->label_type == LABEL_TYPE_FUNCTION) {
-            handle_func_return(cc, block);
+            if (!handle_func_return(cc, block)) {
+                return false;
+            }
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             clear_values(jit_frame);
         }
@@ -548,7 +593,10 @@ handle_op_end(JitCompContext *cc, uint8 **p_frame_ip, bool is_block_polymorphic)
         block = jit_block_stack_pop(&cc->block_stack);
 
         if (block->label_type == LABEL_TYPE_FUNCTION) {
-            handle_func_return(cc, block);
+            if (!handle_func_return(cc, block)) {
+                jit_block_destroy(block);
+                goto fail;
+            }
             SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
             clear_values(jit_frame);
         }
@@ -760,7 +808,7 @@ jit_compile_op_block(JitCompContext *cc, uint8 **p_frame_ip,
     else if (label_type == LABEL_TYPE_IF) {
         POP_I32(value);
 
-        if (!jit_reg_is_const_val(value)) {
+        if (!jit_reg_is_const(value)) {
             /* Compare value is not constant, create condition br IR */
 
             /* Create entry block */
@@ -856,6 +904,42 @@ check_copy_arities(const JitBlock *block_dst, JitFrame *jit_frame)
     }
 }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+bool
+jit_check_suspend_flags(JitCompContext *cc)
+{
+    JitReg exec_env, suspend_flags, terminate_flag, offset;
+    JitBasicBlock *terminate_block, *cur_basic_block;
+    JitFrame *jit_frame = cc->jit_frame;
+
+    cur_basic_block = cc->cur_basic_block;
+    terminate_block = jit_cc_new_basic_block(cc, 0);
+    if (!terminate_block) {
+        return false;
+    }
+
+    gen_commit_values(jit_frame, jit_frame->lp, jit_frame->sp);
+    exec_env = cc->exec_env_reg;
+    suspend_flags = jit_cc_new_reg_I32(cc);
+    terminate_flag = jit_cc_new_reg_I32(cc);
+
+    offset = jit_cc_new_const_I32(cc, offsetof(WASMExecEnv, suspend_flags));
+    GEN_INSN(LDI32, suspend_flags, exec_env, offset);
+    GEN_INSN(AND, terminate_flag, suspend_flags, NEW_CONST(I32, 1));
+
+    GEN_INSN(CMP, cc->cmp_reg, terminate_flag, NEW_CONST(I32, 0));
+    GEN_INSN(BNE, cc->cmp_reg, jit_basic_block_label(terminate_block), 0);
+
+    cc->cur_basic_block = terminate_block;
+    GEN_INSN(RETURN, NEW_CONST(I32, 0));
+
+    cc->cur_basic_block = cur_basic_block;
+
+    return true;
+}
+
+#endif
+
 static bool
 handle_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
@@ -938,6 +1022,13 @@ fail:
 bool
 jit_compile_op_br(JitCompContext *cc, uint32 br_depth, uint8 **p_frame_ip)
 {
+
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     return handle_op_br(cc, br_depth, p_frame_ip)
            && handle_next_reachable_block(cc, p_frame_ip);
 }
@@ -1011,7 +1102,7 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         }
     }
 
-    /* Only opy parameters or results when their count > 0 and
+    /* Only copy parameters or results when their count > 0 and
        the src/dst addr are different */
     copy_arities = check_copy_arities(block_dst, jit_frame);
 
@@ -1057,6 +1148,12 @@ jit_compile_op_br_if(JitCompContext *cc, uint32 br_depth,
         jit_insn_delete(insn_select);
     }
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     SET_BUILDER_POS(if_basic_block);
     SET_BB_BEGIN_BCIP(if_basic_block, *p_frame_ip - 1);
 
@@ -1096,6 +1193,12 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
     uint32 i = 0;
     JitOpndLookupSwitch *opnd = NULL;
 
+#if WASM_ENABLE_THREAD_MGR != 0
+    /* Insert suspend check point */
+    if (!jit_check_suspend_flags(cc))
+        return false;
+#endif
+
     cur_basic_block = cc->cur_basic_block;
 
     POP_I32(value);
@@ -1127,7 +1230,7 @@ jit_compile_op_br_table(JitCompContext *cc, uint32 *br_depths, uint32 br_count,
         copy_arities = check_copy_arities(block_dst, cc->jit_frame);
 
         if (!copy_arities) {
-            /* No need to create new basic block, direclty jump to
+            /* No need to create new basic block, directly jump to
                the existing basic block when no need to copy arities */
             if (i == br_count) {
                 if (block_dst->label_type == LABEL_TYPE_LOOP) {
@@ -1190,7 +1293,9 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 
     bh_assert(block_func);
 
-    handle_func_return(cc, block_func);
+    if (!handle_func_return(cc, block_func)) {
+        return false;
+    }
     SET_BB_END_BCIP(cc->cur_basic_block, *p_frame_ip - 1);
     clear_values(cc->jit_frame);
 
@@ -1200,7 +1305,7 @@ jit_compile_op_return(JitCompContext *cc, uint8 **p_frame_ip)
 bool
 jit_compile_op_unreachable(JitCompContext *cc, uint8 **p_frame_ip)
 {
-    if (!jit_emit_exception(cc, JIT_EXCE_UNREACHABLE, JIT_OP_JMP, 0, NULL))
+    if (!jit_emit_exception(cc, EXCE_UNREACHABLE, JIT_OP_JMP, 0, NULL))
         return false;
 
     return handle_next_reachable_block(cc, p_frame_ip);

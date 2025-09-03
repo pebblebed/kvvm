@@ -10,37 +10,45 @@
 
 /* clang-format off */
 /* for soft-float */
-void __floatsidf();
-void __divdf3();
-void __ltdf2();
+void __floatsidf(void);
+void __divdf3(void);
+void __ltdf2(void);
 
 /* for mul32 */
-void __mulsi3();
-void __muldi3();
+void __mulsi3(void);
+void __muldi3(void);
 
-void __modsi3();
+void __modsi3(void);
 
-void __divdi3();
+void __divdi3(void);
 
-void __udivdi3();
-void __unorddf2();
-void __adddf3();
-void __eqdf2();
-void __muldf3();
-void __gedf2();
-void __ledf2();
-void __fixunsdfsi();
-void __floatunsidf();
-void __subdf3();
-void __nedf2();
-void __fixdfsi();
-void __moddi3();
-void __extendsfdf2();
-void __truncdfsf2();
-void __gtdf2();
-void __umoddi3();
-void __floatdidf();
-void __divsf3();
+void __udivdi3(void);
+void __unorddf2(void);
+void __adddf3(void);
+void __eqdf2(void);
+void __muldf3(void);
+void __gedf2(void);
+void __ledf2(void);
+void __fixunsdfsi(void);
+void __floatunsidf(void);
+void __subdf3(void);
+void __nedf2(void);
+void __fixdfsi(void);
+void __moddi3(void);
+void __extendsfdf2(void);
+void __truncdfsf2(void);
+void __gtdf2(void);
+void __umoddi3(void);
+void __floatdidf(void);
+void __divsf3(void);
+void __fixdfdi(void);
+void __floatundidf(void);
+void __fixsfdi(void);
+void __fixunssfdi(void);
+void __fixunsdfdi(void);
+void __floatdisf(void);
+void __floatundisf(void);
+
 
 static SymbolMap target_sym_map[] = {
     REG_COMMON_SYMBOLS
@@ -80,8 +88,13 @@ static SymbolMap target_sym_map[] = {
     REG_SYM(__umoddi3),
     REG_SYM(__floatdidf),
     REG_SYM(__divsf3),
-    REG_SYM(sqrt),
-    REG_SYM(sqrtf),
+    REG_SYM(__fixdfdi),
+    REG_SYM(__floatundidf),
+    REG_SYM(__fixsfdi),
+    REG_SYM(__fixunssfdi),
+    REG_SYM(__fixunsdfdi),
+    REG_SYM(__floatdisf),
+    REG_SYM(__floatundisf),
 };
 /* clang-format on */
 
@@ -106,7 +119,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 }
 
 static uint32
-get_plt_item_size()
+get_plt_item_size(void)
 {
     return 0;
 }
@@ -141,7 +154,7 @@ check_reloc_offset(uint32 target_section_size, uint64 reloc_offset,
  * CPU like esp32 can read and write data through the instruction bus, but only
  * in a word aligned manner; non-word-aligned access will cause a CPU exception.
  * This function uses a world aligned manner to write 16bit value to instruction
- * addreess.
+ * address.
  */
 static void
 put_imm16_to_addr(int16 imm16, int16 *addr)
@@ -204,6 +217,10 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
         case R_XTENSA_32:
         {
             uint8 *insn_addr = target_section_addr + reloc_offset;
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
+            bh_assert(insn_addr != NULL);
+#endif
             int32 initial_addend;
             /* (S + A) */
             if ((intptr_t)insn_addr & 3) {
@@ -256,18 +273,37 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             if (relative_offset < -256 * BH_KB || relative_offset > -4) {
                 set_error_buf(error_buf, error_buf_size,
                               "AOT module load failed: "
-                              "target address out of range.");
+                              "target address out of range.\n"
+                              "Try using `wamrc --size-level=0` to generate "
+                              ".literal island.");
                 return false;
             }
 
+#if (WASM_MEM_DUAL_BUS_MIRROR != 0)
+            insn_addr = os_get_dbus_mirror((void *)insn_addr);
+            bh_assert(insn_addr != NULL);
+            l32r_insn = (l32r_insn_t *)insn_addr;
+#endif
             imm16 = (int16)(relative_offset >> 2);
 
             /* write back the imm16 to the l32r instruction */
+
+            /* GCC >= 9 complains if we have a pointer that could be
+             * unaligned. This can happen because the struct is packed.
+             * These pragma are to suppress the warnings because the
+             * function put_imm16_to_addr already handles unaligned
+             * pointers correctly. */
+#if __GNUC__ >= 9
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+#endif
             if (is_little_endian())
                 put_imm16_to_addr(imm16, &l32r_insn->l.imm16);
             else
                 put_imm16_to_addr(imm16, &l32r_insn->b.imm16);
-
+#if __GNUC__ >= 9
+#pragma GCC diagnostic pop
+#endif
             break;
         }
 
@@ -276,7 +312,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                 snprintf(error_buf, error_buf_size,
                          "Load relocation section failed: "
                          "invalid relocation type %d.",
-                         reloc_type);
+                         (int)reloc_type);
             return false;
     }
 

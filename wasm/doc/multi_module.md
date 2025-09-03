@@ -6,7 +6,7 @@ WAMR loads all dependencies recursively according to the _import section_ of a m
 
 > WAMR only implements the load-time dynamic linking. Please refer to [dynamic linking](https://webassembly.org/docs/dynamic-linking/) for more details.
 
-WAMR follows [WASI Command/Reactor Model](https://github.com/WebAssembly/WASI/blob/main/design/application-abi.md#current-unstable-abi). The WASI model separates modules into commands and reactors. A Command is the main module that requires exports of reactors(submodules).
+WAMR follows [WASI Command/Reactor Model](https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md#current-unstable-abi). The WASI model separates modules into commands and reactors. A Command is the main module that requires exports of reactors(submodules).
 
 if `WASM_ENABLE_LIBC_WASI` is enabled, any module imports a WASI APIs, like `(import "wasi_snapshot_preview1" "XXX")`, should follow restrictions of the _WASI application ABI_:
 
@@ -62,8 +62,7 @@ WAMR hopes that the native host or embedding environment loads/unloads the modul
 ```c
 wasm_function_inst_t
 wasm_runtime_lookup_function(wasm_module_inst_t const module_inst,
-                             const char *name,
-                             const char *signature);
+                             const char *name);
 ```
 
 Multi-module allows one to look up an exported function of a submodule. There are two ways to indicate the function _name_:

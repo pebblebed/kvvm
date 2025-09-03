@@ -19,11 +19,13 @@
 
 static pthread_mutex_t lock = { 0 };
 static pthread_cond_t cond = { 0 };
+static bool server_create_failed = false;
 static bool server_is_ready = false;
 
 void *
 run_as_server(void *arg)
 {
+    (void)arg;
     int sock = -1, on = 1;
     struct sockaddr_in addr = { 0 };
     int addrlen = 0;
@@ -46,6 +48,8 @@ run_as_server(void *arg)
     pthread_mutex_lock(&lock);
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Create a socket failed");
         return NULL;
@@ -53,6 +57,8 @@ run_as_server(void *arg)
 
 #ifndef __wasi__
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on))) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Setsockopt failed");
         goto fail1;
@@ -66,12 +72,16 @@ run_as_server(void *arg)
 
     addrlen = sizeof(addr);
     if (bind(sock, (struct sockaddr *)&addr, addrlen) < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Bind failed");
         goto fail1;
     }
 
     if (listen(sock, 0) < 0) {
+        server_create_failed = true;
+        pthread_cond_signal(&cond);
         pthread_mutex_unlock(&lock);
         perror("Listen failed");
         goto fail1;
@@ -100,7 +110,7 @@ run_as_server(void *arg)
 fail2:
     close(new_sock);
 fail1:
-    shutdown(sock, SHUT_RD);
+    shutdown(sock, SHUT_RDWR);
     close(sock);
     return NULL;
 }
@@ -108,6 +118,7 @@ fail1:
 void *
 run_as_client(void *arg)
 {
+    (void)arg;
     int sock = -1;
     struct sockaddr_in addr = { 0 };
     /* buf of server is 106 bytes */
@@ -117,10 +128,14 @@ run_as_client(void *arg)
     ssize_t recv_len = 0;
 
     pthread_mutex_lock(&lock);
-    while (false == server_is_ready) {
+    while (!server_create_failed && !server_is_ready) {
         pthread_cond_wait(&cond, &lock);
     }
     pthread_mutex_unlock(&lock);
+
+    if (server_create_failed) {
+        return NULL;
+    }
 
     printf("Client is running...\n");
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -146,7 +161,7 @@ run_as_client(void *arg)
         goto fail;
     }
 
-    printf("Receive %ld bytes successlly!\n", recv_len);
+    printf("Receive %ld bytes successfully!\n", recv_len);
     assert(recv_len == 106);
 
     printf("Data:\n");
@@ -157,7 +172,7 @@ run_as_client(void *arg)
     }
 
 fail:
-    shutdown(sock, SHUT_RD);
+    shutdown(sock, SHUT_RDWR);
     close(sock);
     return NULL;
 }
@@ -165,6 +180,8 @@ fail:
 int
 main(int argc, char *argv[])
 {
+    (void)argc;
+    (void)argv;
     pthread_t cs[2] = { 0 };
     uint8_t i = 0;
     int ret = EXIT_SUCCESS;

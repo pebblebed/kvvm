@@ -103,7 +103,7 @@ enclave_init(sgx_enclave_id_t *p_eid)
                <= MAX_PATH - 1 - sizeof(TOKEN_FILENAME) - strlen("/")) {
         /* compose the token path */
         strncpy(token_path, home_dir, MAX_PATH);
-        strncat(token_path, "/", strlen("/"));
+        strncat(token_path, "/", strlen("/") + 1);
         strncat(token_path, TOKEN_FILENAME, sizeof(TOKEN_FILENAME) + 1);
     }
     else {
@@ -153,7 +153,7 @@ enclave_init(sgx_enclave_id_t *p_eid)
         return 0;
     }
 
-    /* reopen the file with write capablity */
+    /* reopen the file with write capability */
     fp = freopen(token_path, "wb", fp);
     if (fp == NULL)
         return 0;
@@ -217,7 +217,7 @@ print_help()
            "                         than main\n");
     printf("  -v=n                   Set log verbose level (0 to 5, default is 2) larger\n"
            "                         level with more log\n");
-    printf("  --stack-size=n         Set maximum stack size in bytes, default is 16 KB\n");
+    printf("  --stack-size=n         Set maximum stack size in bytes, default is 64 KB\n");
     printf("  --heap-size=n          Set maximum heap size in bytes, default is 16 KB\n");
     printf("  --repl                 Start a very simple REPL (read-eval-print-loop) mode\n"
            "                         that runs commands in the form of `FUNC ARG...`\n");
@@ -228,10 +228,13 @@ print_help()
     printf("                         to the program, for example:\n");
     printf("                           --dir=<dir1> --dir=<dir2>\n");
     printf("  --addr-pool=           Grant wasi access to the given network addresses in\n");
-    printf("                         CIRD notation to the program, seperated with ',',\n");
+    printf("                         CIDR notation to the program, separated with ',',\n");
     printf("                         for example:\n");
     printf("                           --addr-pool=1.2.3.4/15,2.3.4.5/16\n");
     printf("  --max-threads=n        Set maximum thread number per cluster, default is 4\n");
+#if WASM_ENABLE_STATIC_PGO != 0
+    printf("  --gen-prof-file=<path> Generate LLVM PGO (Profile-Guided Optimization) profile file\n");
+#endif
     printf("  --version              Show version information\n");
     return 1;
 }
@@ -294,6 +297,10 @@ typedef enum EcallCmd {
     CMD_SET_WASI_ARGS,        /* wasm_runtime_set_wasi_args() */
     CMD_SET_LOG_LEVEL,        /* bh_log_set_verbose_level() */
     CMD_GET_VERSION,          /* wasm_runtime_get_version() */
+#if WASM_ENABLE_STATIC_PGO != 0
+    CMD_GET_PGO_PROF_BUF_SIZE,  /* wasm_runtime_get_pro_prof_data_size() */
+    CMD_DUMP_PGO_PROF_BUF_DATA, /* wasm_runtime_dump_pgo_prof_data_to_buf() */
+#endif
 } EcallCmd;
 
 static void
@@ -370,15 +377,14 @@ set_log_verbose_level(int log_verbose_level)
 }
 
 static bool
-init_runtime(bool alloc_with_pool, uint32_t max_thread_num)
+init_runtime(uint32_t max_thread_num)
 {
-    uint64_t ecall_args[2];
+    uint64_t ecall_args[1];
 
-    ecall_args[0] = alloc_with_pool;
-    ecall_args[1] = max_thread_num;
+    ecall_args[0] = max_thread_num;
     if (SGX_SUCCESS
         != ecall_handle_command(g_eid, CMD_INIT_RUNTIME, (uint8_t *)ecall_args,
-                                sizeof(uint64_t) * 2)) {
+                                sizeof(ecall_args))) {
         printf("Call ecall_handle_command() failed.\n");
         return false;
     }
@@ -599,6 +605,64 @@ get_version(uint64_t *major, uint64_t *minor, uint64_t *patch)
     *patch = ecall_args[2];
 }
 
+#if WASM_ENABLE_STATIC_PGO != 0
+static void
+dump_pgo_prof_data(void *module_inst, const char *path)
+{
+    char *buf;
+    uint32_t len;
+    FILE *file;
+
+    uint64_t ecall_args[1];
+    ecall_args[0] = (uint64_t)(uintptr_t)module_inst;
+    if (SGX_SUCCESS
+        != ecall_handle_command(g_eid, CMD_GET_PGO_PROF_BUF_SIZE,
+                                (uint8_t *)ecall_args, sizeof(ecall_args))) {
+        printf("Call ecall_handle_command() failed.\n");
+        return;
+    }
+    if (!(len = ecall_args[0])) {
+        printf("failed to get LLVM PGO profile data size\n");
+        return;
+    }
+
+    if (!(buf = (char *)malloc(len))) {
+        printf("allocate memory failed\n");
+        return;
+    }
+
+    uint64_t ecall_args_2[3];
+    ecall_args_2[0] = (uint64_t)(uintptr_t)module_inst;
+    ecall_args_2[1] = (uint64_t)(uintptr_t)buf;
+    ecall_args_2[2] = len;
+    if (SGX_SUCCESS
+        != ecall_handle_command(g_eid, CMD_DUMP_PGO_PROF_BUF_DATA,
+                                (uint8_t *)ecall_args_2,
+                                sizeof(ecall_args_2))) {
+        printf("Call ecall_handle_command() failed.\n");
+        free(buf);
+        return;
+    }
+    if (!(len = ecall_args_2[0])) {
+        printf("failed to dump LLVM PGO profile data\n");
+        free(buf);
+        return;
+    }
+
+    if (!(file = fopen(path, "wb"))) {
+        printf("failed to create file %s", path);
+        free(buf);
+        return;
+    }
+    fwrite(buf, len, 1, file);
+    fclose(file);
+
+    free(buf);
+
+    printf("LLVM raw profile file %s was generated.\n", path);
+}
+#endif
+
 int
 main(int argc, char *argv[])
 {
@@ -607,12 +671,12 @@ main(int argc, char *argv[])
     const char *func_name = NULL;
     uint8_t *wasm_file_buf = NULL;
     uint32_t wasm_file_size;
-    uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32_t stack_size = 64 * 1024, heap_size = 16 * 1024;
     void *wasm_module = NULL;
     void *wasm_module_inst = NULL;
     char error_buf[128] = { 0 };
     int log_verbose_level = 2;
-    bool is_repl_mode = false, alloc_with_pool = false;
+    bool is_repl_mode = false;
     const char *dir_list[8] = { NULL };
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
@@ -620,6 +684,9 @@ main(int argc, char *argv[])
     const char *addr_pool[8] = { NULL };
     uint32_t addr_pool_size = 0;
     uint32_t max_thread_num = 4;
+#if WASM_ENABLE_STATIC_PGO != 0
+    const char *gen_prof_file = NULL;
+#endif
 
     if (enclave_init(&g_eid) < 0) {
         std::cout << "Fail to initialize enclave." << std::endl;
@@ -628,7 +695,7 @@ main(int argc, char *argv[])
 
 #if TEST_OCALL_API != 0
     {
-        if (!init_runtime(alloc_with_pool, max_thread_num)) {
+        if (!init_runtime(max_thread_num)) {
             return -1;
         }
         ecall_iwasm_test(g_eid);
@@ -719,6 +786,13 @@ main(int argc, char *argv[])
                 return print_help();
             max_thread_num = atoi(argv[0] + 14);
         }
+#if WASM_ENABLE_STATIC_PGO != 0
+        else if (!strncmp(argv[0], "--gen-prof-file=", 16)) {
+            if (argv[0][16] == '\0')
+                return print_help();
+            gen_prof_file = argv[0] + 16;
+        }
+#endif
         else if (!strncmp(argv[0], "--version", 9)) {
             uint64_t major = 0, minor = 0, patch = 0;
             get_version(&major, &minor, &patch);
@@ -735,7 +809,7 @@ main(int argc, char *argv[])
     wasm_file = argv[0];
 
     /* Init runtime */
-    if (!init_runtime(alloc_with_pool, max_thread_num)) {
+    if (!init_runtime(max_thread_num)) {
         return -1;
     }
 
@@ -780,6 +854,11 @@ main(int argc, char *argv[])
     else
         app_instance_main(wasm_module_inst, argc, argv);
 
+#if WASM_ENABLE_STATIC_PGO != 0
+    if (gen_prof_file)
+        dump_pgo_prof_data(wasm_module_inst, gen_prof_file);
+#endif
+
     ret = 0;
 
     /* Deinstantiate module */
@@ -797,12 +876,7 @@ fail1:
     /* Destroy runtime environment */
     destroy_runtime();
 
-#if WASM_ENABLE_SPEC_TEST != 0
-    (void)ret;
-    return 0;
-#else
     return ret;
-#endif
 }
 
 int
@@ -826,9 +900,9 @@ wamr_pal_init(const struct wamr_pal_attr *args)
 int
 wamr_pal_create_process(struct wamr_pal_create_process_args *args)
 {
-    uint32_t stack_size = 16 * 1024, heap_size = 16 * 1024;
+    uint32_t stack_size = 64 * 1024, heap_size = 16 * 1024;
     int log_verbose_level = 2;
-    bool is_repl_mode = false, alloc_with_pool = false;
+    bool is_repl_mode = false;
     const char *dir_list[8] = { NULL };
     uint32_t dir_list_size = 0;
     const char *env_list[8] = { NULL };
@@ -842,7 +916,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     int stdoutfd = -1;
     int stderrfd = -1;
 
-    int argc = 2;
+    const int argc = 2;
     char *argv[argc] = { (char *)"./iwasm", (char *)args->argv[0] };
 
     uint8_t *wasm_files_buf = NULL;
@@ -871,7 +945,7 @@ wamr_pal_create_process(struct wamr_pal_create_process_args *args)
     }
 
     /* Init runtime */
-    if (!init_runtime(alloc_with_pool, max_thread_num)) {
+    if (!init_runtime(max_thread_num)) {
         printf("Failed to init runtime\n");
         return -1;
     }

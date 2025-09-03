@@ -93,7 +93,7 @@ wasm_get_externref(wasm_exec_env_t exec_env, wasm_module_inst_t inst,
         return false;
     }
 
-    if (WASM_ANYREF != results[0].kind) {
+    if (WASM_EXTERNREF != results[0].kind) {
         return false;
     }
 
@@ -108,7 +108,7 @@ wasm_cmp_externref(wasm_exec_env_t exec_env, wasm_module_inst_t inst,
     wasm_val_t results[1] = { 0 };
     wasm_val_t arguments[2] = {
         { .kind = WASM_I32, .of.i32 = index },
-        { .kind = WASM_ANYREF, .of.foreign = externref },
+        { .kind = WASM_EXTERNREF, .of.foreign = externref },
     };
 
     if (!exec_env || !wasm_cmp_externref_ptr || !ret_result) {
@@ -142,8 +142,8 @@ set_and_cmp(wasm_exec_env_t exec_env, wasm_module_inst_t inst, int32 i,
     wasm_set_externref(exec_env, inst, i, externref);
     local_set_externref(i, externref);
 
-    wasm_get_externref(exec_env, inst, 0, &wasm_externref);
-    if (!local_chk_externref(exec_env, 0, wasm_externref)) {
+    wasm_get_externref(exec_env, inst, i, &wasm_externref);
+    if (!local_chk_externref(exec_env, i, wasm_externref)) {
         printf("#%d, In host language world Wasm Externref 0x%lx Vs. Native "
                "Externref 0x%lx FAILED\n",
                i, wasm_externref, externref);
@@ -234,19 +234,19 @@ main(int argc, char *argv[])
 
     /* lookup function instance */
     if (!(wasm_cmp_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "cmp-externref", NULL))) {
+              wasm_module_inst, "cmp-externref"))) {
         printf("%s\n", "lookup function cmp-externref failed");
         goto fail;
     }
 
     if (!(wasm_get_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "get-externref", NULL))) {
+              wasm_module_inst, "get-externref"))) {
         printf("%s\n", "lookup function get-externref failed");
         goto fail;
     }
 
     if (!(wasm_set_externref_ptr = wasm_runtime_lookup_function(
-              wasm_module_inst, "set-externref", NULL))) {
+              wasm_module_inst, "set-externref"))) {
         printf("%s\n", "lookup function set-externref failed");
         goto fail;
     }

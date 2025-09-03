@@ -50,6 +50,18 @@ WAMR_BUILD_INTERP = 1
 # Enable AOT by default.
 WAMR_BUILD_AOT = 1
 
+# Override the global heap usage
+ifndef WAMR_BUILD_GLOBAL_HEAP_POOL
+WAMR_BUILD_GLOBAL_HEAP_POOL=1
+endif
+GLOBAL_DEFINES += WASM_ENABLE_GLOBAL_HEAP_POOL=${WAMR_BUILD_GLOBAL_HEAP_POOL}
+
+# Override the global heap size for small devices
+ifndef WAMR_BUILD_GLOBAL_HEAP_SIZE
+WAMR_BUILD_GLOBAL_HEAP_SIZE = 262144 # 256 kB
+endif
+GLOBAL_DEFINES += WASM_GLOBAL_HEAP_SIZE=${WAMR_BUILD_GLOBAL_HEAP_SIZE}
+
 ifeq (${WAMR_BUILD_INTERP}, 1)
 GLOBAL_DEFINES += WASM_ENABLE_INTERP=1
 endif
@@ -86,9 +98,11 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_alloc.c \
                    ${SHARED_ROOT}/mem-alloc/ems/ems_hmu.c \
                    ${SHARED_ROOT}/utils/bh_assert.c \
+                   ${SHARED_ROOT}/utils/bh_bitmap.c \
                    ${SHARED_ROOT}/utils/bh_common.c \
                    ${SHARED_ROOT}/utils/bh_hashmap.c \
                    ${SHARED_ROOT}/utils/bh_list.c \
+                   ${SHARED_ROOT}/utils/bh_leb128.c \
                    ${SHARED_ROOT}/utils/bh_log.c \
                    ${SHARED_ROOT}/utils/bh_queue.c \
                    ${SHARED_ROOT}/utils/bh_vector.c \
@@ -98,6 +112,7 @@ $(NAME)_SOURCES := ${SHARED_ROOT}/platform/alios/alios_platform.c \
                    ${IWASM_ROOT}/common/wasm_runtime_common.c \
                    ${IWASM_ROOT}/common/wasm_native.c \
                    ${IWASM_ROOT}/common/wasm_exec_env.c \
+                   ${IWASM_ROOT}/common/wasm_loader_common.c \
                    ${IWASM_ROOT}/common/wasm_memory.c \
                    ${IWASM_ROOT}/common/wasm_c_api.c \
                    ${IWASM_ROOT}/common/arch/${INVOKE_NATIVE} \

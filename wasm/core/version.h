@@ -3,12 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  */
 
-/* Please don't modify this header. It is automatically generated.
-   Any modification should be in config_common.cmake */
+/*
+ * version.h.in is a template file.  version.h is a generated file.
+ * Please do not edit both files directly.
+ *
+ * Any changes to the version should be done in build-scripts/version.cmake.
+ *
+ * Continue to maintain the version.h for certain embedded platforms.
+ */
 
 #ifndef _WAMR_VERSION_H_
 #define _WAMR_VERSION_H_
-#define WAMR_VERSION_MAJOR 1
-#define WAMR_VERSION_MINOR 0
-#define WAMR_VERSION_PATCH 0
+
+/* clang-format off */
+#define WAMR_VERSION_MAJOR 2
+#define WAMR_VERSION_MINOR 4
+#define WAMR_VERSION_PATCH 1
+/* clang-format on */
+
 #endif

@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.14)
 project(wasm-apps)
 
 set(WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
@@ -29,6 +29,7 @@ set (DEFINED_SYMBOLS
 set (CMAKE_EXE_LINKER_FLAGS
     "-Wl,--shared-memory,--max-memory=131072,       \
     -Wl,--no-entry,--strip-all,--export=sum,        \
+    -Wl,--export=return_bss,        \
     -Wl,--export=__heap_base,--export=__data_end    \
     -Wl,--export=__wasm_call_ctors  \
     -Wl,--allow-undefined-file=${DEFINED_SYMBOLS}"

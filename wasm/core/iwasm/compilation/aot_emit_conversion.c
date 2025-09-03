@@ -9,6 +9,36 @@
 #include "../aot/aot_intrinsic.h"
 #include "../aot/aot_runtime.h"
 
+static LLVMValueRef
+call_fcmp_intrinsic(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
+                    enum AOTFloatCond cond, LLVMRealPredicate op,
+                    LLVMValueRef lhs, LLVMValueRef rhs, LLVMTypeRef src_type,
+                    const char *name)
+{
+    LLVMValueRef res = NULL;
+    if (comp_ctx->disable_llvm_intrinsics
+        && aot_intrinsic_check_capability(
+            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
+        LLVMTypeRef param_types[3];
+        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, cond, true);
+        param_types[0] = I32_TYPE;
+        param_types[1] = src_type;
+        param_types[2] = src_type;
+        res = aot_call_llvm_intrinsic(
+            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
+            I32_TYPE, param_types, 3, opcond, lhs, rhs);
+        if (!res) {
+            goto fail;
+        }
+        res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
+    }
+    else {
+        res = LLVMBuildFCmp(comp_ctx->builder, op, lhs, rhs, name);
+    }
+fail:
+    return res;
+}
+
 static bool
 trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                    LLVMValueRef operand, LLVMTypeRef src_type,
@@ -18,26 +48,8 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMBasicBlockRef check_nan_succ, check_overflow_succ;
     LLVMValueRef is_less, is_greater, res;
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_UNO, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        res = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, operand);
-        if (!res) {
-            goto fail;
-        }
-        res = LLVMBuildIntCast(comp_ctx->builder, res, INT1_TYPE, "bit_cast");
-    }
-    else {
-        res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, operand, operand,
-                            "fcmp_is_nan");
-    }
+    res = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_UNO, LLVMRealUNO,
+                              operand, operand, src_type, "fcmp_is_nan");
 
     if (!res) {
         aot_set_last_error("llvm build fcmp failed.");
@@ -58,54 +70,18 @@ trunc_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                              check_nan_succ)))
         goto fail;
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_LE, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        is_less = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, min_value);
-        if (!is_less) {
-            goto fail;
-        }
-        is_less =
-            LLVMBuildIntCast(comp_ctx->builder, is_less, INT1_TYPE, "bit_cast");
-    }
-    else {
-        is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
-                                min_value, "fcmp_min_value");
-    }
+    is_less =
+        call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_LE, LLVMRealOLE, operand,
+                            min_value, src_type, "fcmp_min_value");
 
     if (!is_less) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
 
-    if (comp_ctx->disable_llvm_intrinsics
-        && aot_intrinsic_check_capability(
-            comp_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp")) {
-        LLVMTypeRef param_types[3];
-        LLVMValueRef opcond = LLVMConstInt(I32_TYPE, FLOAT_GE, true);
-        param_types[0] = I32_TYPE;
-        param_types[1] = src_type;
-        param_types[2] = src_type;
-        is_greater = aot_call_llvm_intrinsic(
-            comp_ctx, func_ctx, src_type == F32_TYPE ? "f32_cmp" : "f64_cmp",
-            I32_TYPE, param_types, 3, opcond, operand, max_value);
-        if (!is_greater) {
-            goto fail;
-        }
-        is_greater = LLVMBuildIntCast(comp_ctx->builder, is_greater, INT1_TYPE,
-                                      "bit_cast");
-    }
-    else {
-        is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
-                                   max_value, "fcmp_min_value");
-    }
+    is_greater =
+        call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_GE, LLVMRealOGE, operand,
+                            max_value, src_type, "fcmp_min_value");
 
     if (!is_greater) {
         aot_set_last_error("llvm build fcmp failed.");
@@ -183,8 +159,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
     LLVMValueRef zero = (dest_type == I32_TYPE) ? I32_ZERO : I64_ZERO;
     LLVMValueRef vmin, vmax;
 
-    if (!(res = LLVMBuildFCmp(comp_ctx->builder, LLVMRealUNO, operand, operand,
-                              "fcmp_is_nan"))) {
+    if (!(res =
+              call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_UNO, LLVMRealUNO,
+                                  operand, operand, src_type, "fcmp_is_nan"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -212,8 +189,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Start to translate check_nan_succ block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_nan_succ);
-    if (!(is_less = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOLE, operand,
-                                  min_value, "fcmp_min_value"))) {
+    if (!(is_less = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_LE,
+                                        LLVMRealOLE, operand, min_value,
+                                        src_type, "fcmp_min_value"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -232,8 +210,9 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     /* Start to translate check_less_succ block */
     LLVMPositionBuilderAtEnd(comp_ctx->builder, check_less_succ);
-    if (!(is_greater = LLVMBuildFCmp(comp_ctx->builder, LLVMRealOGE, operand,
-                                     max_value, "fcmp_max_value"))) {
+    if (!(is_greater = call_fcmp_intrinsic(comp_ctx, func_ctx, FLOAT_GE,
+                                           LLVMRealOGE, operand, max_value,
+                                           src_type, "fcmp_max_value"))) {
         aot_set_last_error("llvm build fcmp failed.");
         goto fail;
     }
@@ -261,10 +240,30 @@ trunc_sat_float_to_int(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
                                       param_types, 1, operand);
     }
     else {
-        if (sign)
-            res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type, name);
-        else
-            res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type, name);
+        char intrinsic[128];
+
+        /* Integer width is always 32 or 64 here. */
+
+        snprintf(intrinsic, sizeof(intrinsic), "i%d_trunc_f%d_%c",
+                 LLVMGetIntTypeWidth(dest_type),
+                 LLVMGetTypeKind(src_type) == LLVMFloatTypeKind ? 32 : 64,
+                 sign ? 's' : 'u');
+
+        if (comp_ctx->disable_llvm_intrinsics
+            && aot_intrinsic_check_capability(comp_ctx, intrinsic)) {
+            res = aot_call_llvm_intrinsic(comp_ctx, func_ctx, intrinsic,
+                                          dest_type, &src_type, 1, operand);
+        }
+        else {
+            if (sign) {
+                res = LLVMBuildFPToSI(comp_ctx->builder, operand, dest_type,
+                                      name);
+            }
+            else {
+                res = LLVMBuildFPToUI(comp_ctx->builder, operand, dest_type,
+                                      name);
+            }
+        }
     }
 
     if (!res) {
@@ -348,17 +347,8 @@ aot_compile_op_i32_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
-    if (!comp_ctx->is_indirect_mode) {
-        if (sign) {
-            min_value = F32_CONST(-2147483904.0f);
-            max_value = F32_CONST(2147483648.0f);
-        }
-        else {
-            min_value = F32_CONST(-1.0f);
-            max_value = F32_CONST(4294967296.0f);
-        }
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f32.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f32 = -2147483904.0f;
@@ -375,6 +365,16 @@ aot_compile_op_i32_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             wasm_value.f32 = 4294967296.0f;
             max_value = aot_load_const_from_table(
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F32);
+        }
+    }
+    else {
+        if (sign) {
+            min_value = F32_CONST(-2147483904.0f);
+            max_value = F32_CONST(2147483648.0f);
+        }
+        else {
+            min_value = F32_CONST(-1.0f);
+            max_value = F32_CONST(4294967296.0f);
         }
     }
     CHECK_LLVM_CONST(min_value);
@@ -401,17 +401,8 @@ aot_compile_op_i32_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
-    if (!comp_ctx->is_indirect_mode) {
-        if (sign) {
-            min_value = F64_CONST(-2147483649.0);
-            max_value = F64_CONST(2147483648.0);
-        }
-        else {
-            min_value = F64_CONST(-1.0);
-            max_value = F64_CONST(4294967296.0);
-        }
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f64.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f64 = -2147483649.0;
@@ -428,6 +419,16 @@ aot_compile_op_i32_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             wasm_value.f64 = 4294967296.0;
             max_value = aot_load_const_from_table(
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F64);
+        }
+    }
+    else {
+        if (sign) {
+            min_value = F64_CONST(-2147483649.0);
+            max_value = F64_CONST(2147483648.0);
+        }
+        else {
+            min_value = F64_CONST(-1.0);
+            max_value = F64_CONST(4294967296.0);
         }
     }
     CHECK_LLVM_CONST(min_value);
@@ -555,17 +556,8 @@ aot_compile_op_i64_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F32(value);
 
-    if (!comp_ctx->is_indirect_mode) {
-        if (sign) {
-            min_value = F32_CONST(-9223373136366403584.0f);
-            max_value = F32_CONST(9223372036854775808.0f);
-        }
-        else {
-            min_value = F32_CONST(-1.0f);
-            max_value = F32_CONST(18446744073709551616.0f);
-        }
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f32.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f32 = -9223373136366403584.0f;
@@ -582,6 +574,16 @@ aot_compile_op_i64_trunc_f32(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             wasm_value.f32 = 18446744073709551616.0f;
             max_value = aot_load_const_from_table(
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F32);
+        }
+    }
+    else {
+        if (sign) {
+            min_value = F32_CONST(-9223373136366403584.0f);
+            max_value = F32_CONST(9223372036854775808.0f);
+        }
+        else {
+            min_value = F32_CONST(-1.0f);
+            max_value = F32_CONST(18446744073709551616.0f);
         }
     }
     CHECK_LLVM_CONST(min_value);
@@ -608,17 +610,8 @@ aot_compile_op_i64_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
 
     POP_F64(value);
 
-    if (!comp_ctx->is_indirect_mode) {
-        if (sign) {
-            min_value = F64_CONST(-9223372036854777856.0);
-            max_value = F64_CONST(9223372036854775808.0);
-        }
-        else {
-            min_value = F64_CONST(-1.0);
-            max_value = F64_CONST(18446744073709551616.0);
-        }
-    }
-    else {
+    if (comp_ctx->is_indirect_mode
+        && aot_intrinsic_check_capability(comp_ctx, "f64.const")) {
         WASMValue wasm_value;
         if (sign) {
             wasm_value.f64 = -9223372036854777856.0;
@@ -635,6 +628,16 @@ aot_compile_op_i64_trunc_f64(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx,
             wasm_value.f64 = 18446744073709551616.0;
             max_value = aot_load_const_from_table(
                 comp_ctx, func_ctx->native_symbol, &wasm_value, VALUE_TYPE_F64);
+        }
+    }
+    else {
+        if (sign) {
+            min_value = F64_CONST(-9223372036854777856.0);
+            max_value = F64_CONST(9223372036854775808.0);
+        }
+        else {
+            min_value = F64_CONST(-1.0);
+            max_value = F64_CONST(18446744073709551616.0);
         }
     }
     CHECK_LLVM_CONST(min_value);

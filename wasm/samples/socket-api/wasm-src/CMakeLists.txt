@@ -1,7 +1,7 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 2.8...3.18)
+cmake_minimum_required(VERSION 3.14)
 project(socket_api_sample_wasm_app)
 
 message(CHECK_START "Detecting WABT")
@@ -54,7 +54,9 @@ function(COMPILE_WITH_CLANG SOURCE_FILE)
   target_link_options(${MAIN_TARGET_NAME} PRIVATE
     LINKER:--export=__heap_base
     LINKER:--export=__data_end
-    LINKER:--shared-memory,--max-memory=196608
+    LINKER:--export=malloc
+    LINKER:--export=free
+    LINKER:--shared-memory,--max-memory=10485760
     LINKER:--no-check-features
     LINKER:--allow-undefined
   )
@@ -79,3 +81,11 @@ endfunction()
 compile_with_clang(tcp_server.c)
 compile_with_clang(tcp_client.c)
 compile_with_clang(send_recv.c)
+compile_with_clang(addr_resolve.c)
+compile_with_clang(socket_opts.c)
+compile_with_clang(udp_client.c)
+compile_with_clang(udp_server.c)
+compile_with_clang(multicast_client.c)
+compile_with_clang(multicast_server.c)
+compile_with_clang(timeout_client.c)
+compile_with_clang(timeout_server.c)

@@ -1,7 +1,10 @@
 # Copyright (C) 2019 Intel Corporation.  All rights reserved.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.14)
+
+include(CheckPIESupported)
+
 project(native_lib)
 
 ################ runtime settings  ##############
@@ -46,17 +49,19 @@ set (WAMR_BUILD_LIBC_BUILTIN 1)
 set (WAMR_BUILD_FAST_INTERP 1)
 
 # compiling and linking flags
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pie -fPIE")
 if (NOT (CMAKE_C_COMPILER MATCHES ".*clang.*" OR CMAKE_C_COMPILER_ID MATCHES ".*Clang"))
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
 endif ()
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wformat -Wformat-security")
 
-# build out vmlib
+# build out libiwasm
 set (WAMR_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 
-add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
+# Note: we build libiwasm as a shared library here so that it can be
+# shared between iwasm and native libraries.
+add_library(libiwasm SHARED ${WAMR_RUNTIME_LIB_SOURCE})
+set_target_properties (libiwasm PROPERTIES OUTPUT_NAME iwasm)
 
 ################ wamr runtime ###################
 include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
@@ -68,11 +73,19 @@ set (RUNTIME_SOURCE_ALL
 
 add_executable (iwasm ${RUNTIME_SOURCE_ALL})
 
-target_link_libraries(iwasm vmlib -lpthread -lm -ldl)
+check_pie_supported()
+set_target_properties (iwasm PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+target_link_libraries(iwasm libiwasm -lpthread -lm -ldl)
 
 ################ native libraries ###############
 add_library (test_add SHARED test_add.c)
 add_library (test_sqrt SHARED test_sqrt.c)
+add_library (test_hello SHARED test_hello.c)
+# Note: Unlike simpler examples above, test_hello2 directly uses
+# the API provided by the libiwasm library.
+add_library (test_hello2 SHARED test_hello2.c)
+target_link_libraries(test_hello2 libiwasm)
 
 ################ wasm application ###############
 add_subdirectory(wasm-app)

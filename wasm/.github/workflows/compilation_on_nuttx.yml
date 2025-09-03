@@ -6,18 +6,34 @@ name: compilation on nuttx
 on:
   # will be triggered on PR events
   pull_request:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
+    types:
+      - opened
+      - synchronize
+    paths:
+      - ".github/workflows/compilation_on_nuttx.yml"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
   # will be triggered on push events
   push:
-    paths-ignore:
-      - "assembly-script/**"
-      - "ci/**"
-      - "doc/**"
-      - "test-tools/**"
+    branches:
+      - main
+      - "dev/**"
+    paths:
+      - ".github/workflows/compilation_on_nuttx.yml"
+      - "build-scripts/**"
+      - "core/**"
+      - "!core/deps/**"
+      - "product-mini/**"
+      - "samples/**"
+      - "!samples/workload/**"
+      - "tests/wamr-test-suites/**"
+      - "wamr-compiler/**"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -27,87 +43,104 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  # Cancel any in-flight jobs for the same PR/branch so there's only one active
-  # at a time
-  cancel_previous:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Cancel Workflow Action
-        uses: styfle/cancel-workflow-action@0.9.1
-        with:
-          access_token: ${{ github.token }}  
+env:
+  WASI_SDK_PATH: "/opt/wasi-sdk"
 
+permissions:
+  contents: read
+
+jobs:
   build_iwasm_on_nuttx:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
+
     strategy:
       matrix:
-        nuttx_board_config : [
+        nuttx_board_config: [
           # x64
           "boards/sim/sim/sim/configs/nsh",
           # cortex-m0
           "boards/arm/rp2040/raspberrypi-pico/configs/nsh",
-          # cortex-m4
-          "boards/arm/stm32/stm32f4discovery/configs/nsh",
           # cortex-m7
           "boards/arm/stm32h7/nucleo-h743zi/configs/nsh",
-          # cortex-a9
-          "boards/arm/imx6/sabre-6quad/configs/nsh",
-          # riscv32imac
+          # riscv32gc
           "boards/risc-v/qemu-rv/rv-virt/configs/nsh",
-          # riscv64imac
-          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
           # riscv64gc
-          "boards/risc-v/k210/maix-bit/configs/nsh",
+          "boards/risc-v/qemu-rv/rv-virt/configs/nsh64",
+          # arm64
+          "boards/arm64/qemu/qemu-armv8a/configs/nsh",
         ]
-        wamr_config_option: [
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\nCONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_AOT=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_FAST=y\\n",
-          "CONFIG_INTERPRETERS_WAMR=y\\nCONFIG_INTERPRETERS_WAMR_CLASSIC=y\\n",
-        ]
+
+        wamr_config_option:
+          - "CONFIG_INTERPRETERS_WAMR_AOT"
+          - "CONFIG_INTERPRETERS_WAMR_FAST"
+          - "CONFIG_INTERPRETERS_WAMR_CLASSIC"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_FAST"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_FAST CONFIG_INTERPRETERS_WAMR_LIBC_WASI"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_FAST CONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC CONFIG_INTERPRETERS_WAMR_LIBC_WASI"
+          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC CONFIG_INTERPRETERS_WAMR_LIBC_WASI"
 
     steps:
-      - name: Install Utilities
-        run: sudo apt install -y kconfig-frontends-nox genromfs
-
-      - name: Install ARM Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'arm') }}
-        run: sudo apt install -y gcc-arm-none-eabi
-
-      - name: Install RISC-V Compilers
-        if: ${{ contains(matrix.nuttx_board_config, 'risc-v') }}
-        run: sudo apt install -y gcc-riscv64-unknown-elf
-
       - name: Checkout NuttX
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          repository: apache/incubator-nuttx
+          repository: apache/nuttx
+          ref: releases/12.9
           path: nuttx
 
       - name: Checkout NuttX Apps
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          repository: apache/incubator-nuttx-apps
+          repository: apache/nuttx-apps
+          ref: releases/12.9
           path: apps
 
       - name: Checkout WAMR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
           path: apps/interpreters/wamr/wamr
 
-      - name: Enable WAMR for NuttX
-        run: | 
-          find nuttx/boards -name defconfig | xargs sed -i '$a\CONFIG_EOL_IS_CR=y\n${{ matrix.wamr_config_option }}'
-          find nuttx/boards/sim -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
-          find nuttx/boards/risc-v -name defconfig | xargs sed -i '$a\CONFIG_LIBM=y\n'
+      - name: Configure WAMR
+        working-directory: nuttx
+        run: |
+          tools/configure.sh ${{ matrix.nuttx_board_config }}
+          kconfig-tweak --enable CONFIG_PSEUDOFS_SOFTLINKS
+          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
+          kconfig-tweak --enable CONFIG_INTERPRETERS_IWASM_TASK
+          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_PRIORITY 100
+          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACKSIZE 8192
+          for x in ${{ matrix.wamr_config_option }}; do
+            kconfig-tweak --enable $x
+          done
 
       - name: Build
+        working-directory: nuttx
+        run: make -j$(nproc) EXTRAFLAGS=-Werror
+
+      - name: Checkout Bloaty
+        uses: actions/checkout@v4
+        with:
+          repository: google/bloaty
+          submodules: recursive
+          path: bloaty
+          ref: 34f4a66559ad4938c1e629e9b5f54630b2b4d7b0
+
+      - name: Build Bloaty
         run: |
-          cd nuttx
-          tools/configure.sh ${{ matrix.nuttx_board_config }}
-          make -j$(nproc)
+          cmake -Bbuild -GNinja bloaty
+          cmake --build build
+
+      - name: Size Report
+        run: |
+          echo "Build target: ${{ matrix.nuttx_board_config }}"
+          echo "WAMR build config: ${{ matrix.wamr_config_option }}"
+          echo "WAMR size:"
+          build/bloaty -d compileunits --source-filter wamr nuttx/nuttx
+          echo "libc-builtin size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-builtin nuttx/nuttx
+          echo "libc-wasi size (if enabled):"
+          build/bloaty -d compileunits --source-filter libc-wasi nuttx/nuttx

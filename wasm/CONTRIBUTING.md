@@ -19,7 +19,7 @@ Code changes
 We Use Github Flow, So All Code Changes Happen Through Pull Requests. Pull requests are the best way to propose changes to the codebase. We actively welcome your pull requests:
 
 - If you've added code that should be tested, add tests. Ensure the test suite passes.
-- Avoid use macros for different platforms. Use seperate folder of source files to host diffeent platform logic.
+- Avoid use macros for different platforms. Use separate folder of source files to host different platform logic.
 - Put macro definitions inside share_lib/include/config.h if you have to use macro.
 - Make sure your code lints and compliant to our coding style.
 - Extend the application library is highly welcome.
@@ -27,7 +27,7 @@ We Use Github Flow, So All Code Changes Happen Through Pull Requests. Pull reque
 Coding Style
 ===============================
 Please use [K&R](https://en.wikipedia.org/wiki/Indentation_style#K.26R) coding style, such as 4 spaces for indentation rather than tabs etc.
-We suggest use Eclipse like IDE or stable coding format tools to make your code compliant to K&R format.
+We suggest using VS Code like IDE or stable coding format tools, like clang-format, to make your code compliant to the customized format(in .clang-format).
 
 Report bugs
 ===================

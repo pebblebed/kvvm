@@ -38,8 +38,14 @@ typedef enum {
 void
 bh_log_set_verbose_level(uint32 level);
 
+#ifndef BH_LOG
 void
 bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
+#else
+void
+BH_LOG(uint32 log_level, const char *file, int line, const char *fmt, ...);
+#define bh_log BH_LOG
+#endif
 
 #ifdef BH_PLATFORM_NUTTX
 
@@ -72,6 +78,14 @@ bh_log(LogLevel log_level, const char *file, int line, const char *fmt, ...);
 
 void
 bh_print_time(const char *prompt);
+
+void
+bh_print_proc_mem(const char *prompt);
+
+void
+bh_log_proc_mem(const char *function, uint32 line);
+
+#define LOG_PROC_MEM(...) bh_log_proc_mem(__FUNCTION__, __LINE__)
 
 #ifdef __cplusplus
 }

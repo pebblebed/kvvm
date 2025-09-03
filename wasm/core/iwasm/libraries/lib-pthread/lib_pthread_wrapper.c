@@ -46,10 +46,6 @@
     wasm_runtime_addr_native_to_app(module_inst, ptr)
 /* clang-format on */
 
-extern bool
-wasm_runtime_call_indirect(wasm_exec_env_t exec_env, uint32 element_indices,
-                           uint32 argc, uint32 argv[]);
-
 enum {
     T_THREAD,
     T_MUTEX,
@@ -472,7 +468,7 @@ get_thread_info(wasm_exec_env_t exec_env, uint32 handle)
     WASMCluster *cluster = wasm_exec_env_get_cluster(exec_env);
     ClusterInfoNode *info = get_cluster_info(cluster);
 
-    if (!info) {
+    if (!info || !handle) {
         return NULL;
     }
 
@@ -494,7 +490,6 @@ pthread_start_routine(void *arg)
 {
     wasm_exec_env_t exec_env = (wasm_exec_env_t)arg;
     wasm_exec_env_t parent_exec_env;
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *routine_args = exec_env->thread_arg;
     ThreadInfoNode *info_node = routine_args->info_node;
     uint32 argv[1];
@@ -504,7 +499,6 @@ pthread_start_routine(void *arg)
     info_node->exec_env = exec_env;
     info_node->u.thread = exec_env->handle;
     if (!append_thread_info_node(info_node)) {
-        wasm_runtime_deinstantiate_internal(module_inst, true);
         delete_thread_info_node(info_node);
         os_cond_signal(&parent_exec_env->wait_cond);
         os_mutex_unlock(&parent_exec_env->wait_lock);
@@ -520,15 +514,11 @@ pthread_start_routine(void *arg)
 
     if (!wasm_runtime_call_indirect(exec_env, routine_args->elem_index, 1,
                                     argv)) {
-        if (wasm_runtime_get_exception(module_inst))
-            wasm_cluster_spread_exception(exec_env);
+        /* Exception has already been spread during throwing */
     }
 
     /* destroy pthread key values */
     call_key_destructor(exec_env);
-
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
 
     wasm_runtime_free(routine_args);
 
@@ -541,7 +531,8 @@ pthread_start_routine(void *arg)
     else {
         info_node->u.ret = (void *)(uintptr_t)argv[0];
 #ifdef OS_ENABLE_HW_BOUND_CHECK
-        if (exec_env->suspend_flags.flags & 0x08)
+        if (WASM_SUSPEND_FLAGS_GET(exec_env->suspend_flags)
+            & WASM_SUSPEND_FLAG_EXIT)
             /* argv[0] isn't set after longjmp(1) to
                invoke_native_with_hw_bound_check */
             info_node->u.ret = exec_env->thread_ret_value;
@@ -567,10 +558,9 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     ThreadRoutineArgs *routine_args = NULL;
     uint32 thread_handle;
     uint32 stack_size = 8192;
+    uint32 aux_stack_size;
+    uint64 aux_stack_start = 0;
     int32 ret = -1;
-#if WASM_ENABLE_LIBC_WASI != 0
-    WASIContext *wasi_ctx;
-#endif
 
     bh_assert(module);
     bh_assert(module_inst);
@@ -590,18 +580,17 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 #endif
 
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
-              module, true, stack_size, 0, NULL, 0)))
+              module, module_inst, exec_env, stack_size, 0, 0, NULL, 0)))
         return -1;
 
     /* Set custom_data to new module instance */
     wasm_runtime_set_custom_data_internal(
         new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
-#if WASM_ENABLE_LIBC_WASI != 0
-    wasi_ctx = get_wasi_ctx(module_inst);
-    if (wasi_ctx)
-        wasm_runtime_set_wasi_ctx(new_module_inst, wasi_ctx);
-#endif
+    wasm_native_inherit_contexts(new_module_inst, module_inst);
+
+    if (!(wasm_cluster_dup_c_api_imports(new_module_inst, module_inst)))
+        goto fail;
 
     if (!(info_node = wasm_runtime_malloc(sizeof(ThreadInfoNode))))
         goto fail;
@@ -622,9 +611,22 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
     routine_args->info_node = info_node;
     routine_args->module_inst = new_module_inst;
 
+    /* Allocate aux stack previously since exec_env->wait_lock is acquired
+       below, and if the stack is allocated in wasm_cluster_create_thread,
+       runtime may call the exported malloc function to allocate the stack,
+       which acquires exec_env->wait again in wasm_exec_env_set_thread_info,
+       and recursive lock (or hang) occurs */
+    if (!wasm_cluster_allocate_aux_stack(exec_env, &aux_stack_start,
+                                         &aux_stack_size)) {
+        LOG_ERROR("thread manager error: "
+                  "failed to allocate aux stack space for new thread");
+        goto fail;
+    }
+
     os_mutex_lock(&exec_env->wait_lock);
     ret = wasm_cluster_create_thread(
-        exec_env, new_module_inst, pthread_start_routine, (void *)routine_args);
+        exec_env, new_module_inst, true, aux_stack_start, aux_stack_size,
+        pthread_start_routine, (void *)routine_args);
     if (ret != 0) {
         os_mutex_unlock(&exec_env->wait_lock);
         goto fail;
@@ -648,6 +650,8 @@ fail:
         wasm_runtime_free(info_node);
     if (routine_args)
         wasm_runtime_free(routine_args);
+    if (aux_stack_start)
+        wasm_cluster_free_aux_stack(exec_env, aux_stack_start);
     return ret;
 }
 
@@ -666,14 +670,14 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
 
     /* validate addr, we can use current thread's
        module instance here as the memory is shared */
-    if (!validate_app_addr(retval_offset, sizeof(int32))) {
+    if (!validate_app_addr((uint64)retval_offset, (uint64)sizeof(int32))) {
         /* Join failed, but we don't want to terminate all threads,
            do not spread exception here */
         wasm_runtime_set_exception(module_inst, NULL);
         return -1;
     }
 
-    retval = (void **)addr_app_to_native(retval_offset);
+    retval = (void **)addr_app_to_native((uint64)retval_offset);
 
     node = get_thread_info(exec_env, thread);
     if (!node) {
@@ -696,6 +700,14 @@ pthread_join_wrapper(wasm_exec_env_t exec_env, uint32 thread,
         bh_assert(node->joinable);
         join_ret = 0;
         ret = node->u.ret;
+
+        /* The target thread changes the node's status before calling
+           wasm_cluster_exit_thread to exit, so here its resources may
+           haven't been destroyed yet, we wait enough time to ensure that
+           they are actually destroyed to avoid unexpected behavior. */
+        os_mutex_lock(&exec_env->wait_lock);
+        os_cond_reltimedwait(&exec_env->wait_cond, &exec_env->wait_lock, 1000);
+        os_mutex_unlock(&exec_env->wait_lock);
     }
 
     if (retval_offset != 0)
@@ -763,7 +775,6 @@ __pthread_self_wrapper(wasm_exec_env_t exec_env)
 static void
 pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 {
-    wasm_module_inst_t module_inst = get_module_inst(exec_env);
     ThreadRoutineArgs *args = get_thread_arg(exec_env);
     /* Currently exit main thread is not allowed */
     if (!args)
@@ -781,9 +792,6 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
     /* destroy pthread key values */
     call_key_destructor(exec_env);
 
-    /* routine exit, destroy instance */
-    wasm_runtime_deinstantiate_internal(module_inst, true);
-
     if (!args->info_node->joinable) {
         delete_thread_info_node(args->info_node);
     }
@@ -795,6 +803,8 @@ pthread_exit_wrapper(wasm_exec_env_t exec_env, int32 retval_offset)
 
     wasm_runtime_free(args);
 
+    /* Don't destroy exec_env->module_inst in this functuntion since
+       it will be destroyed in wasm_cluster_exit_thread */
     wasm_cluster_exit_thread(exec_env, (void *)(uintptr_t)retval_offset);
 }
 
@@ -1113,7 +1123,8 @@ posix_memalign_wrapper(wasm_exec_env_t exec_env, void **memptr, int32 align,
     wasm_module_inst_t module_inst = get_module_inst(exec_env);
     void *p = NULL;
 
-    *((int32 *)memptr) = module_malloc(size, (void **)&p);
+    /* TODO: for memory 64, module_malloc may return uint64 offset */
+    *((uint32 *)memptr) = (uint32)module_malloc(size, (void **)&p);
     if (!p)
         return -1;
 
@@ -1134,6 +1145,10 @@ sem_open_wrapper(wasm_exec_env_t exec_env, const char *name, int32 oflags,
      * between task/pthread.
      * For Unix like system, it's dedicated for multiple processes.
      */
+
+    if (!name) { /* avoid passing NULL to bh_hash_map_find and os_sem_open */
+        return -1;
+    }
 
     if ((info_node = bh_hash_map_find(sem_info_map, (void *)name))) {
         return info_node->handle;
@@ -1250,7 +1265,7 @@ sem_getvalue_wrapper(wasm_exec_env_t exec_env, uint32 sem, int32 *sval)
     (void)exec_env;
     SemCallbackArgs args = { sem, NULL };
 
-    if (validate_native_addr(sval, sizeof(int32))) {
+    if (validate_native_addr(sval, (uint64)sizeof(int32))) {
 
         bh_hash_map_traverse(sem_info_map, sem_fetch_cb, &args);
 
@@ -1267,7 +1282,13 @@ sem_unlink_wrapper(wasm_exec_env_t exec_env, const char *name)
     (void)exec_env;
     int32 ret_val;
 
-    ThreadInfoNode *info_node = bh_hash_map_find(sem_info_map, (void *)name);
+    ThreadInfoNode *info_node;
+
+    if (!name) { /* avoid passing NULL to bh_hash_map_find */
+        return -1;
+    }
+
+    info_node = bh_hash_map_find(sem_info_map, (void *)name);
     if (!info_node || info_node->type != T_SEM)
         return -1;
 
