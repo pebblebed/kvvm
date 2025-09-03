@@ -72,6 +72,10 @@ struct WasmImpl: public WasmRuntime {
         }
         auto progzo = (uint8_t*)&wasm_proggy[0];
         module = wasm_runtime_load(progzo, wasm_proggy.size(), error_buf, sizeof(error_buf));
+        if (!module) {
+            std::string msg = std::string("wasm_runtime_load failed: ") + error_buf;
+            throw std::runtime_error(msg);
+        }
         module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
 
     }
@@ -88,7 +92,7 @@ WasmRuntime::load(const std::string& bytes) {
 
 std::string
 WasmImpl::run(std::string arg) {
-    auto func = wasm_runtime_lookup_function(module_inst, "main", NULL);
+    auto func = wasm_runtime_lookup_function(module_inst, "main");
     exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
 
     // Allocate space in the runtime and record the buffer.
@@ -96,8 +100,8 @@ WasmImpl::run(std::string arg) {
     uint32_t host_argv[2];
     host_argv[0] = wasm_runtime_module_dup_data(module_inst, &arg[0], sz);
     host_argv[1] = wasm_runtime_module_dup_data(module_inst, "main", 4);
-    auto callee_argv = wasm_runtime_module_dup_data(module_inst, (const char*)host_argv, sizeof(host_argv));
-    uint32_t guest_argv[] = { 2, callee_argv };
+    uint32_t callee_argv = wasm_runtime_module_dup_data(module_inst, (const char*)host_argv, sizeof(host_argv));
+    uint32_t guest_argv[] = { callee_argv };
 
     // Call the function.
     wasm_runtime_call_wasm(exec_env, func, 2, guest_argv);    

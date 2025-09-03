@@ -4,7 +4,7 @@
 std::string
 load_hello_world() {
     FILE *fp = fopen(
-        "../src/udfs/rust-hello-world/target/wasm32-wasi/debug/hello-world.wasm",
+        "../src/udfs/rust-hello-world/target/wasm32-wasip1/debug/hello_world.wasm",
         "r");
     assert(fp);
     fseek(fp, 0, SEEK_END);
